@@ -41,6 +41,12 @@ Necessária para o ambiente limpo da pasta segura e para religar o serviço de a
 adb shell pm grant dev.foco.bloqueio android.permission.WRITE_SECURE_SETTINGS
 ```
 
+E o acesso ao uso, para o ambiente limpo poder desligar a acessibilidade do Bloqueio enquanto um banco está aberto (e religar quando você sai):
+
+```bash
+adb shell appops set dev.foco.bloqueio GET_USAGE_STATS allow
+```
+
 ### 5. Adicione as contas de volta
 
 Agora pode logar Google/Samsung normalmente.

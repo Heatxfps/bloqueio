@@ -59,7 +59,8 @@ fun rememberSetupStatus(): SetupStatus {
             accessibility = accessibilityOn,
             notifications = NotificationManagerCompat.from(context).areNotificationsEnabled(),
             systemProtection = policy.isDeviceOwner,
-            cleanEnvironment = CleanEnvironment.canWriteSecureSettings(context),
+            // Ambiente limpo completo: configurações seguras + acesso ao uso (para desligar a acessibilidade no banco).
+            cleanEnvironment = CleanEnvironment.canWriteSecureSettings(context) && CleanEnvironment.hasUsageAccess(context),
         )
     }
 }

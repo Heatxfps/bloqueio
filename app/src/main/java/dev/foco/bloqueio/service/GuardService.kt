@@ -80,6 +80,7 @@ class GuardService : Service() {
         }
         scope.launch { monitor.state.collect { GuardState.vpn.value = it } }
         scope.launch { loop() }
+        scope.launch { watchCleanEnvironment() }
         scope.launch {
             while (isActive) {
                 runCatching { monitor.tick(RulesRepository.config.value.vpn) }
@@ -131,6 +132,30 @@ class GuardService : Service() {
     }
 
     /** Suspende (Device Owner) tudo que está em Block; o resto fica com a acessibilidade. */
+    /**
+     * Com a acessibilidade desligada pelo ambiente limpo, quem percebe a saída do banco é o
+     * acesso ao uso. Sai só depois de 4 s fora da pasta (o banco pode abrir telas do sistema).
+     */
+    private suspend fun watchCleanEnvironment() {
+        var outsideSince = 0L
+        while (scope.isActive) {
+            if (CleanEnvironment.isActive(this) && CleanEnvironment.accessibilityPaused(this)) {
+                val fg = CleanEnvironment.foregroundPackage(this)
+                val now = System.currentTimeMillis()
+                if (fg != null && !CleanEnvironment.isInsideFolder(this, fg)) {
+                    if (outsideSince == 0L) outsideSince = now
+                    if (now - outsideSince >= 4_000) {
+                        CleanEnvironment.exit(this)
+                        outsideSince = 0L
+                    }
+                } else {
+                    outsideSince = 0L
+                }
+            }
+            delay(2_000)
+        }
+    }
+
     /** Liga o Hub como tela inicial no começo do descanso e devolve o launcher no fim. */
     private fun syncHub() {
         val want = currentState().inSchedule && policy.isDeviceOwner
@@ -160,6 +185,8 @@ class GuardService : Service() {
     /** Religa o serviço de acessibilidade se alguém o desativou (requer WRITE_SECURE_SETTINGS). */
     private fun healAccessibility() {
         if (!CleanEnvironment.canWriteSecureSettings(this)) return
+        // O ambiente limpo desligou a acessibilidade de propósito (banco aberto): não religar.
+        if (CleanEnvironment.accessibilityPaused(this)) return
         val me = "$packageName/${GuardAccessibilityService::class.java.name}"
         val cr = contentResolver
         val enabled = Settings.Secure.getString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
@@ -175,6 +202,7 @@ class GuardService : Service() {
     /** Se o processo morreu com o ambiente limpo ativo, restaura quando sair da pasta. */
     private fun restoreCleanEnvIfOrphan() {
         if (!CleanEnvironment.isActive(this)) return
+        if (CleanEnvironment.accessibilityPaused(this)) return // vigiado por watchCleanEnvironment()
         val fg = GuardState.foreground.value ?: return
         if (fg !in RulesRepository.config.value.secureFolder && fg !in catalog.alwaysAllowed() - packageName) {
             CleanEnvironment.exit(this)
