@@ -32,6 +32,11 @@ object DistractionDetector {
         val consumptionTabs: List<String> = emptyList(),
         /** Abas permitidas para onde levar a pessoa, em ordem de preferência. */
         val escapeTabs: List<String> = emptyList(),
+        /**
+         * Rótulos de acessibilidade que só existem dentro do player (início do texto). Usado
+         * quando o app esconde os IDs das telas, como o Facebook ("name removed").
+         */
+        val viewerLabels: List<String> = emptyList(),
     )
 
     private val home = listOf("Página inicial", "Início", "Home", "Feed")
@@ -52,10 +57,16 @@ object DistractionDetector {
             consumptionTabs = listOf("Shorts"),
             escapeTabs = listOf("Início", "Home", "Inscrições", "Subscriptions") + profile,
         ),
+        // O Reels aberto pelo feed é um player em tela cheia (ImmersiveActivity) sem IDs;
+        // estes rótulos só aparecem nele (conferido no app em 15/11/2026).
         "com.facebook.katana" to Spec(
             label = "Reels",
             consumptionTabs = listOf("Reels", "Vídeo", "Video", "Watch"),
             escapeTabs = home + profile,
+            viewerLabels = listOf(
+                "Detalhes do reel", "Ver os reels de", "Navegar para o seu perfil do Reels",
+                "Reel details", "See reels from", "View reels from", "Go to your Reels profile",
+            ),
         ),
         // No TikTok o feed é o consumo; Perfil e Caixa de entrada continuam (criar fica no Perfil).
         "com.zhiliaoapp.musically" to tikTok(),
@@ -92,6 +103,22 @@ object DistractionDetector {
                 n.isVisibleToUser && r.width() >= screen.width() * 0.9f && r.height() >= screen.height() * 0.7f
             }
             if (full != null) return Detection(spec.label, viaTab = false, reason = "visualizador $id").also(::log)
+        }
+        if (spec.viewerLabels.isNotEmpty()) {
+            findByLabelPrefix(root, spec.viewerLabels, depth = 0)?.let { n ->
+                return Detection(spec.label, viaTab = false, reason = "player \"${labelOf(n)}\"").also(::log)
+            }
+        }
+        return null
+    }
+
+    private fun findByLabelPrefix(n: AccessibilityNodeInfo, prefixes: List<String>, depth: Int): AccessibilityNodeInfo? {
+        if (depth > 45) return null
+        val text = labelOf(n)
+        if (n.isVisibleToUser && prefixes.any { text.startsWith(it, ignoreCase = true) }) return n
+        for (i in 0 until n.childCount) {
+            val c = n.getChild(i) ?: continue
+            findByLabelPrefix(c, prefixes, depth + 1)?.let { return it }
         }
         return null
     }
