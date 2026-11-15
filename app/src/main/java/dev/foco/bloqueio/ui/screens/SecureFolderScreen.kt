@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -59,7 +61,11 @@ fun SecureFolderScreen() {
             Text(
                 if (editing) "OK" else "Editar",
                 style = BloqueioType.body, color = Bloqueio.colors.accent,
-                modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable { editing = !editing }.padding(6.dp),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(role = Role.Button) { editing = !editing }
+                    .heightIn(min = 48.dp)
+                    .padding(horizontal = 12.dp, vertical = 12.dp),
             )
         },
     ) {
@@ -70,7 +76,7 @@ fun SecureFolderScreen() {
                 "Para o ambiente limpo funcionar, conceda WRITE_SECURE_SETTINGS via ADB (docs/INSTALACAO.md, passo 4)."
             },
             style = BloqueioType.footnote,
-            color = if (canClean) Bloqueio.colors.secondaryLabel else Bloqueio.colors.warning,
+            color = if (canClean) Bloqueio.colors.secondaryLabel else Bloqueio.colors.warningText,
             modifier = Modifier.padding(horizontal = 4.dp),
         )
         Spacer(Modifier.height(16.dp))

@@ -2,6 +2,8 @@ package dev.foco.bloqueio.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -56,7 +58,11 @@ fun AppPickerDialog(title: String, exclude: Set<String>, onPick: (String) -> Uni
                 Text(title, style = BloqueioType.headline, color = Bloqueio.colors.label, modifier = Modifier.weight(1f))
                 Text(
                     "Fechar", style = BloqueioType.body, color = Bloqueio.colors.accent,
-                    modifier = Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onDismiss).padding(4.dp),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(role = Role.Button, onClick = onDismiss)
+                        .heightIn(min = 48.dp)
+                        .padding(horizontal = 12.dp, vertical = 12.dp),
                 )
             }
             Column(

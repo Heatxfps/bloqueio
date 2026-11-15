@@ -16,7 +16,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -43,12 +49,14 @@ fun TextFieldCell(
     secure: Boolean = false,
     keyboardType: KeyboardType = KeyboardType.Text,
     label: String? = null,
+    imeAction: ImeAction = ImeAction.Default,
+    onImeAction: (() -> Unit)? = null,
 ) {
     Row(
         modifier
             .fillMaxWidth()
-            .height(52.dp)
-            .padding(horizontal = 16.dp),
+            .heightIn(min = 52.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (label != null) {
@@ -56,7 +64,7 @@ fun TextFieldCell(
         }
         Box(Modifier.weight(1f)) {
             if (value.isEmpty()) {
-                Text(placeholder, style = BloqueioType.body, color = Bloqueio.colors.secondaryLabel.copy(alpha = 0.5f))
+                Text(placeholder, style = BloqueioType.body, color = Bloqueio.colors.secondaryLabel)
             }
             BasicTextField(
                 value = value,
@@ -67,8 +75,13 @@ fun TextFieldCell(
                 visualTransformation = if (secure) PasswordVisualTransformation() else VisualTransformation.None,
                 keyboardOptions = KeyboardOptions(
                     keyboardType = if (secure) KeyboardType.Password else keyboardType,
+                    imeAction = imeAction,
                 ),
-                modifier = Modifier.fillMaxWidth(),
+                keyboardActions = KeyboardActions(onAny = { onImeAction?.invoke() }),
+                // O placeholder é só desenho: o rótulo real vai para o TalkBack aqui.
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = label ?: placeholder },
             )
         }
     }
@@ -89,20 +102,21 @@ fun StepperCell(title: String, value: String, onMinus: () -> Unit, onPlus: () ->
                     .background(Bloqueio.colors.cellSecondary),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                StepButton("−", onMinus)
+                StepButton("−", "Diminuir $title", onMinus)
                 Box(Modifier.size(1.dp, 18.dp).background(Bloqueio.colors.separator))
-                StepButton("+", onPlus)
+                StepButton("+", "Aumentar $title", onPlus)
             }
         },
     )
 }
 
 @Composable
-private fun StepButton(symbol: String, onClick: () -> Unit) {
+private fun StepButton(symbol: String, description: String, onClick: () -> Unit) {
     Box(
         Modifier
-            .size(46.dp, 32.dp)
-            .clickable(onClick = onClick),
+            .size(48.dp, 44.dp)
+            .clickable(role = Role.Button, onClickLabel = description, onClick = onClick)
+            .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,
     ) {
         Text(symbol, style = BloqueioType.title2, color = Bloqueio.colors.label)

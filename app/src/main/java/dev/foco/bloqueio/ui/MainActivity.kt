@@ -5,7 +5,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -104,16 +108,20 @@ private fun Tabs(vault: PasswordVault) {
         // Tab bar estilo iOS
         Column(Modifier.background(Bloqueio.colors.cell).navigationBarsPadding()) {
             HorizontalDivider(thickness = 0.5.dp, color = Bloqueio.colors.separator)
-            Row(Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 4.dp)) {
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp).selectableGroup()) {
                 tabs.forEachIndexed { i, tab ->
                     val color = if (i == selected) Bloqueio.colors.accent else Bloqueio.colors.gray
                     Column(
                         Modifier
                             .weight(1f)
-                            .clickable { selected = i },
+                            .heightIn(min = 52.dp)
+                            .selectable(selected = i == selected, role = Role.Tab, onClick = { selected = i })
+                            .padding(vertical = 4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
                     ) {
-                        Icon(tab.icon, tab.label, tint = color, modifier = Modifier.size(26.dp))
+                        // Ícone decorativo: o rótulo abaixo já é lido pelo TalkBack.
+                        Icon(tab.icon, contentDescription = null, tint = color, modifier = Modifier.size(26.dp))
                         Text(tab.label, style = BloqueioType.caption.copy(letterSpacing = 0.sp), color = color)
                     }
                 }

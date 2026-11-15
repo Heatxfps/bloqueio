@@ -19,6 +19,13 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -156,7 +163,7 @@ fun Cell(
     showDivider: Boolean = true,
     onClick: (() -> Unit)? = null,
 ) {
-    Column(modifier.then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)) {
+    Column(modifier.then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)) {
         Row(
             Modifier
                 .fillMaxWidth()
@@ -171,7 +178,7 @@ fun Cell(
             Column(Modifier.weight(1f)) {
                 Text(
                     title, style = BloqueioType.body, color = titleColor ?: Bloqueio.colors.label,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis,
                 )
                 if (subtitle != null) {
                     Text(
@@ -181,7 +188,11 @@ fun Cell(
                 }
             }
             if (value != null) {
-                Text(value, style = BloqueioType.body, color = valueColor ?: Bloqueio.colors.secondaryLabel)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    value, style = BloqueioType.body, color = valueColor ?: Bloqueio.colors.secondaryLabel,
+                    textAlign = TextAlign.End, modifier = Modifier.widthIn(max = 180.dp),
+                )
             }
             trailing?.invoke()
             if (chevron) {
@@ -200,60 +211,95 @@ fun Cell(
     }
 }
 
-/** Toggle verde estilo iOS (51×31). */
+/**
+ * Toggle verde estilo iOS (51×31). Com [onCheckedChange] ele mesmo é focável pelo leitor
+ * de tela (Role.Switch); dentro de uma linha prefira [SwitchCell], que torna a linha toda tocável.
+ */
 @Composable
 fun IosSwitch(checked: Boolean, onCheckedChange: ((Boolean) -> Unit)?, enabled: Boolean = true) {
     val track by animateColorAsState(if (checked) Bloqueio.colors.success else Bloqueio.colors.cellSecondary, label = "track")
     val offset by animateDpAsState(if (checked) 22.dp else 2.dp, label = "thumb")
     Box(
         Modifier
-            .size(51.dp, 31.dp)
-            .clip(CircleShape)
-            .background(if (enabled) track else track.copy(alpha = 0.4f))
             .then(
-                if (onCheckedChange != null && enabled) Modifier.clickable { onCheckedChange(!checked) } else Modifier,
+                if (onCheckedChange != null) {
+                    Modifier
+                        .minimumInteractiveComponentSize()
+                        .toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange)
+                } else {
+                    Modifier
+                },
             ),
+        contentAlignment = Alignment.Center,
     ) {
         Box(
             Modifier
-                .padding(start = offset, top = 2.dp)
-                .size(27.dp)
+                .size(51.dp, 31.dp)
                 .clip(CircleShape)
-                .background(Color.White),
-        )
+                .background(if (enabled) track else track.copy(alpha = 0.4f)),
+        ) {
+            Box(
+                Modifier
+                    .padding(start = offset, top = 2.dp)
+                    .size(27.dp)
+                    .clip(CircleShape)
+                    .background(Color.White),
+            )
+        }
     }
+}
+
+/** Linha com switch: a linha inteira é o alvo de toque e o título é o rótulo lido pelo TalkBack. */
+@Composable
+fun SwitchCell(
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    subtitle: String? = null,
+    enabled: Boolean = true,
+    showDivider: Boolean = true,
+) {
+    Cell(
+        title = title,
+        subtitle = subtitle,
+        showDivider = showDivider,
+        modifier = Modifier.toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange),
+        trailing = { IosSwitch(checked, onCheckedChange = null, enabled = enabled) },
+    )
 }
 
 @Composable
 fun PrimaryButton(
     text: String,
     modifier: Modifier = Modifier,
-    color: Color = Bloqueio.colors.accent,
+    color: Color = Bloqueio.colors.accentFill,
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     Box(
         modifier
             .fillMaxWidth()
-            .height(50.dp)
+            .heightIn(min = 50.dp)
             .clip(RoundedCornerShape(Radius.button))
             .background(if (enabled) color else color.copy(alpha = 0.35f))
-            .clickable(enabled = enabled, onClick = onClick),
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, style = BloqueioType.headline, color = Color.White)
+        Text(text, style = BloqueioType.headline, color = Color.White, textAlign = TextAlign.Center)
     }
 }
 
-/** Controle segmentado do iOS. */
+/** Controle segmentado do iOS, com semântica de grupo selecionável e alvos de 44 dp. */
 @Composable
 fun SegmentedControl(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     Row(
         modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(9.dp))
+            .clip(RoundedCornerShape(12.dp))
             .background(Bloqueio.colors.cellSecondary)
-            .padding(2.dp),
+            .padding(2.dp)
+            .selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         options.forEachIndexed { i, label ->
@@ -261,16 +307,18 @@ fun SegmentedControl(options: List<String>, selected: Int, onSelect: (Int) -> Un
             Box(
                 Modifier
                     .weight(1f)
-                    .height(30.dp)
-                    .clip(RoundedCornerShape(7.dp))
+                    .heightIn(min = 44.dp)
+                    .clip(RoundedCornerShape(10.dp))
                     .background(if (isSel) Bloqueio.colors.cell else Color.Transparent)
-                    .clickable { onSelect(i) },
+                    .selectable(selected = isSel, role = Role.Tab, onClick = { onSelect(i) })
+                    .padding(horizontal = 4.dp, vertical = 6.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    label, style = BloqueioType.footnote,
+                    label, style = BloqueioType.callout,
                     fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
                     color = Bloqueio.colors.label,
+                    textAlign = TextAlign.Center,
                 )
             }
         }

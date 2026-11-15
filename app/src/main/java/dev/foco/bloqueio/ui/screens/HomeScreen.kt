@@ -31,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -52,6 +53,8 @@ import dev.foco.bloqueio.service.GuardState
 import dev.foco.bloqueio.ui.components.Cell
 import dev.foco.bloqueio.ui.components.GroupedSection
 import dev.foco.bloqueio.ui.components.IconTile
+import dev.foco.bloqueio.ui.components.IosAlert
+import dev.foco.bloqueio.ui.components.TextButtonIos
 import dev.foco.bloqueio.ui.components.LargeTitleScaffold
 import dev.foco.bloqueio.ui.components.PrimaryButton
 import dev.foco.bloqueio.ui.components.QuotaRing
@@ -61,6 +64,7 @@ import dev.foco.bloqueio.ui.theme.BloqueioType
 import dev.foco.bloqueio.ui.theme.Radius
 import dev.foco.bloqueio.vpn.VpnState
 import java.time.Instant
+import java.time.LocalTime
 import java.time.ZoneId
 
 @Composable
@@ -116,8 +120,8 @@ fun HomeScreen() {
                 leading = { IconTile(Icons.Rounded.Shield, Bloqueio.colors.accent) },
                 value = vpn.label,
                 valueColor = when (vpn) {
-                    VpnState.PROTECTED -> Bloqueio.colors.success
-                    VpnState.FAILOVER -> Bloqueio.colors.warning
+                    VpnState.PROTECTED -> Bloqueio.colors.successText
+                    VpnState.FAILOVER -> Bloqueio.colors.warningText
                     VpnState.PROBING, VpnState.CONNECTING -> Bloqueio.colors.accent
                     else -> Bloqueio.colors.secondaryLabel
                 },
@@ -149,6 +153,7 @@ fun HomeScreen() {
         var level by remember { mutableIntStateOf(0) }
         var duration by remember { mutableIntStateOf(1) }
         val durations = listOf(25, 60, 120, 240)
+        var confirmFocus by remember { mutableStateOf(false) }
         GroupedSection(
             header = "Iniciar foco",
             footer = (
@@ -162,14 +167,25 @@ fun HomeScreen() {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SegmentedControl(listOf("Parcial", "Total"), level, { level = it })
                 SegmentedControl(listOf("25 min", "1 h", "2 h", "4 h"), duration, { duration = it })
-                PrimaryButton("Começar", color = Bloqueio.colors.focus) {
+                PrimaryButton("Começar", color = Bloqueio.colors.focusFill) { confirmFocus = true }
+            }
+        }
+        if (confirmFocus) {
+            val total = level == 1
+            val minutes = durations[duration]
+            val until = LocalTime.now().plusMinutes(minutes.toLong())
+            IosAlert(
+                title = if (total) "Começar foco total?" else "Começar foco parcial?",
+                message = "Até %02d:%02d. Só o admin pode encerrar antes.".format(until.hour, until.minute),
+                onDismiss = { confirmFocus = false },
+            ) {
+                TextButtonIos("Começar", color = Bloqueio.colors.focus) {
+                    confirmFocus = false
                     runGuarded(context) {
-                        RulesRepository.startFocus(
-                            if (level == 0) FocusLevel.PARTIAL else FocusLevel.TOTAL,
-                            durations[duration],
-                        )
+                        RulesRepository.startFocus(if (total) FocusLevel.TOTAL else FocusLevel.PARTIAL, minutes)
                     }
                 }
+                TextButtonIos("Cancelar", color = Bloqueio.colors.secondaryLabel) { confirmFocus = false }
             }
         }
 
@@ -217,7 +233,7 @@ private fun SetupCell(
         title = title,
         leading = { IconTile(icon, if (done) Bloqueio.colors.success else Bloqueio.colors.gray) },
         value = if (done) "Ativo" else if (onClick != null) "Ativar" else "Via ADB",
-        valueColor = if (done) Bloqueio.colors.success else if (onClick != null) Bloqueio.colors.accent else null,
+        valueColor = if (done) Bloqueio.colors.successText else if (onClick != null) Bloqueio.colors.accent else null,
         onClick = if (done) null else onClick,
         chevron = !done && onClick != null,
         showDivider = !last,

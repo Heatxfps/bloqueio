@@ -26,11 +26,18 @@ data class BloqueioColors(
     val accent: Color,
     val social: Color,
     val games: Color,
+    /** Preenchimento (switch, anéis). Para TEXTO use [successText]. */
     val success: Color,
+    val successText: Color,
     val warning: Color,
+    val warningText: Color,
     val danger: Color,
     val focus: Color,
     val gray: Color,
+    /** Fundos de botão com texto branco (≥4.5:1 nos dois temas). */
+    val accentFill: Color,
+    val focusFill: Color,
+    val grayFill: Color,
 )
 
 val LightColors = BloqueioColors(
@@ -38,16 +45,21 @@ val LightColors = BloqueioColors(
     cell = Color.White,
     cellSecondary = Color(0xFFF2F2F7),
     label = Color.Black,
-    secondaryLabel = Color(0x993C3C43),
+    secondaryLabel = Color(0xFF6C6C70), // 4.69:1 sobre #F2F2F7 (antes 3.29:1)
     separator = Color(0x4A3C3C43),
-    accent = Color(0xFF007AFF),
+    accent = Color(0xFF0066D6), // 5.42:1 com branco (antes 4.02:1)
     social = Color(0xFFFF2D55),
     games = Color(0xFF5856D6),
     success = Color(0xFF34C759),
+    successText = Color(0xFF1A7F37), // 5.08:1 sobre branco
     warning = Color(0xFFFF9500),
-    danger = Color(0xFFFF3B30),
-    focus = Color(0xFFAF52DE),
-    gray = Color(0xFF8E8E93),
+    warningText = Color(0xFFA35200), // 5.00:1 sobre #F2F2F7
+    danger = Color(0xFFC42B1C), // 5.66:1 sobre branco (antes 3.55:1)
+    focus = Color(0xFF8E3FC2), // 5.77:1 com branco (antes 4.13:1)
+    gray = Color(0xFF636366), // 5.99:1 (antes 3.26:1)
+    accentFill = Color(0xFF0066D6),
+    focusFill = Color(0xFF8E3FC2),
+    grayFill = Color(0xFF636366),
 )
 
 val DarkColors = BloqueioColors(
@@ -61,10 +73,15 @@ val DarkColors = BloqueioColors(
     social = Color(0xFFFF375F),
     games = Color(0xFF5E5CE6),
     success = Color(0xFF30D158),
+    successText = Color(0xFF30D158),
     warning = Color(0xFFFF9F0A),
+    warningText = Color(0xFFFF9F0A),
     danger = Color(0xFFFF453A),
     focus = Color(0xFFBF5AF2),
     gray = Color(0xFF8E8E93),
+    accentFill = Color(0xFF0071E3), // 4.70:1 com branco
+    focusFill = Color(0xFFA050D0), // 4.61:1 com branco
+    grayFill = Color(0xFF636366), // 5.99:1 com branco
 )
 
 /** Escala tipográfica do iOS. */

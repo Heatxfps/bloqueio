@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -39,7 +40,7 @@ import dev.foco.bloqueio.ui.components.Cell
 import dev.foco.bloqueio.ui.components.GroupedSection
 import dev.foco.bloqueio.ui.components.IconTile
 import dev.foco.bloqueio.ui.components.IosAlert
-import dev.foco.bloqueio.ui.components.IosSwitch
+import dev.foco.bloqueio.ui.components.SwitchCell
 import dev.foco.bloqueio.ui.components.LargeTitleScaffold
 import dev.foco.bloqueio.ui.components.PrimaryButton
 import dev.foco.bloqueio.ui.components.SegmentedControl
@@ -65,6 +66,18 @@ private fun AdminLogin(vault: PasswordVault) {
     var newCode by remember { mutableStateOf<String?>(null) }
     val minutes = listOf(5, 15, 30)
 
+    fun tryUnlock() {
+        if (pw.isEmpty()) return
+        when (val r = vault.verify(pw)) {
+            PasswordVault.Result.Ok -> {
+                AdminSession.unlock(minutes[minutesIdx])
+                pw = ""
+            }
+            PasswordVault.Result.Wrong -> error = "Senha incorreta."
+            is PasswordVault.Result.LockedOut -> error = "Muitas tentativas. Tente em ${r.seconds} s."
+        }
+    }
+
     LargeTitleScaffold("Admin") {
         Column(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             IconTile(Icons.Rounded.Lock, Bloqueio.colors.gray, size = 64.dp)
@@ -75,7 +88,10 @@ private fun AdminLogin(vault: PasswordVault) {
             )
         }
         GroupedSection(footer = error) {
-            TextFieldCell(pw, { pw = it; error = null }, "Senha mestra", secure = true)
+            TextFieldCell(
+                pw, { pw = it; error = null }, "Senha mestra", secure = true,
+                imeAction = ImeAction.Done, onImeAction = ::tryUnlock,
+            )
         }
         GroupedSection(header = "Desbloquear por") {
             Column(Modifier.padding(16.dp)) {
@@ -83,16 +99,7 @@ private fun AdminLogin(vault: PasswordVault) {
             }
         }
         Spacer(Modifier.height(24.dp))
-        PrimaryButton("Desbloquear", enabled = pw.isNotEmpty()) {
-            when (val r = vault.verify(pw)) {
-                PasswordVault.Result.Ok -> {
-                    AdminSession.unlock(minutes[minutesIdx])
-                    pw = ""
-                }
-                PasswordVault.Result.Wrong -> error = "Senha incorreta."
-                is PasswordVault.Result.LockedOut -> error = "Muitas tentativas. Tente em ${r.seconds} s."
-            }
-        }
+        PrimaryButton("Desbloquear", enabled = pw.isNotEmpty(), onClick = ::tryUnlock)
         TextButtonIos("Esqueci a senha") { recovering = true }
     }
 
@@ -165,11 +172,11 @@ private fun AdminPanel(vault: PasswordVault) {
         trailing = {
             Text(
                 "%d:%02d".format(left / 60, left % 60),
-                style = BloqueioType.headline, color = Bloqueio.colors.success,
+                style = BloqueioType.headline, color = Bloqueio.colors.successText,
             )
         },
     ) {
-        PrimaryButton("Bloquear agora", color = Bloqueio.colors.gray) { AdminSession.lock() }
+        PrimaryButton("Bloquear agora", color = Bloqueio.colors.grayFill) { AdminSession.lock() }
 
         // Cotas
         GroupedSection(header = "Cotas diárias") {
@@ -188,9 +195,7 @@ private fun AdminPanel(vault: PasswordVault) {
         // Horário
         val sch = config.schedule
         GroupedSection(header = "Horário de descanso", footer = "Só apps essenciais funcionam dentro da janela.") {
-            Cell("Ativado", trailing = {
-                IosSwitch(sch.enabled, { v -> update { it.copy(schedule = it.schedule.copy(enabled = v)) } })
-            })
+            SwitchCell("Ativado", sch.enabled, { v -> update { it.copy(schedule = it.schedule.copy(enabled = v)) } })
             StepperCell("Início", ScheduleWindow.format(sch.startMinute), {
                 update { it.copy(schedule = it.schedule.copy(startMinute = (it.schedule.startMinute + 1410) % 1440)) }
             }, {
@@ -218,18 +223,10 @@ private fun AdminPanel(vault: PasswordVault) {
         // Restrições
         val r = config.restrictions
         GroupedSection(header = "Restrições do sistema", footer = "Exigem Device Owner.") {
-            Cell("Bloquear reset de fábrica", trailing = {
-                IosSwitch(r.blockFactoryReset, { v -> update { it.copy(restrictions = it.restrictions.copy(blockFactoryReset = v)) } })
-            })
-            Cell("Bloquear modo seguro", trailing = {
-                IosSwitch(r.blockSafeBoot, { v -> update { it.copy(restrictions = it.restrictions.copy(blockSafeBoot = v)) } })
-            })
-            Cell("Bloquear config. de VPN", trailing = {
-                IosSwitch(r.blockVpnConfig, { v -> update { it.copy(restrictions = it.restrictions.copy(blockVpnConfig = v)) } })
-            })
-            Cell("Bloquear data e hora", showDivider = false, trailing = {
-                IosSwitch(r.blockDateTime, { v -> update { it.copy(restrictions = it.restrictions.copy(blockDateTime = v)) } })
-            })
+            SwitchCell("Bloquear reset de fábrica", r.blockFactoryReset, { v -> update { it.copy(restrictions = it.restrictions.copy(blockFactoryReset = v)) } })
+            SwitchCell("Bloquear modo seguro", r.blockSafeBoot, { v -> update { it.copy(restrictions = it.restrictions.copy(blockSafeBoot = v)) } })
+            SwitchCell("Bloquear config. de VPN", r.blockVpnConfig, { v -> update { it.copy(restrictions = it.restrictions.copy(blockVpnConfig = v)) } })
+            SwitchCell("Bloquear data e hora", r.blockDateTime, { v -> update { it.copy(restrictions = it.restrictions.copy(blockDateTime = v)) } }, showDivider = false)
         }
 
         // Senha e proteção
@@ -296,9 +293,7 @@ private fun VpnSection(config: AppConfig, update: ((AppConfig) -> AppConfig) -> 
             "Se o Wi‑Fi/dados tiver internet mas nada passar pela VPN ${vpn.failThreshold}× seguidas, " +
             "o servidor caiu: o Tailscale é desligado e a volta é testada a cada ${vpn.retryMinutes} min.",
     ) {
-        Cell("Travar VPN no Tailscale", trailing = {
-            IosSwitch(vpn.enabled, { v -> update { it.copy(vpn = it.vpn.copy(enabled = v)) } })
-        })
+        SwitchCell("Travar VPN no Tailscale", vpn.enabled, { v -> update { it.copy(vpn = it.vpn.copy(enabled = v)) } })
         StepperCell("Testar retorno a cada", "${vpn.retryMinutes} min", {
             update { it.copy(vpn = it.vpn.copy(retryMinutes = (it.vpn.retryMinutes - 1).coerceAtLeast(1))) }
         }, {
