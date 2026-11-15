@@ -78,6 +78,32 @@ Fonte do sistema (no Samsung, *SamsungOne*; o equivalente visual do SF Pro). Esc
 - **Ações que o usuário não desfaz sozinho** (iniciar foco) pedem confirmação; remoções comuns oferecem Desfazer.
 - **Trabalho pesado** (PBKDF2, listar apps) fora da thread principal, com progresso visível.
 
+## Movimento e vidro
+
+Duas camadas (HIG › Liquid Glass): **conteúdo** (cards, listas — sempre opacos) e **funcional** (barra de abas, alertas — únicos lugares com vidro).
+
+| Elemento | Implementação | Detalhes |
+|---|---|---|
+| Barra de abas | Cápsula flutuante, `hazeEffect` (biblioteca Haze) sobre o conteúdo (`hazeSource`) | Desfoque 24 dp, tinta `cell` a 55–62%, borda de luz 0,75 dp, brilho no topo, sombra 18 dp |
+| Seleção da aba | Pílula "líquida" `accent` a 13–22% | Desliza com mola (amortecimento 0,72) e estica até 30% em movimento |
+| Alertas | `FLAG_BLUR_BEHIND` (raio 48) + cartão a 90% | Entram com escala 1,06 → 1 e esmaecimento |
+| Borda de rolagem | Degradê do fundo no topo | Aparece só quando o conteúdo rolou |
+| Anéis de cota (assinatura) | Shader AGSL de "tubo de vidro" (Android 13+) | Enchem com mola ao abrir; luz segue a inclinação; minutos contam junto |
+| Ícones | Camada de brilho + paralaxe pelo sensor de gravidade | Luz desloca 8% do tamanho, símbolo 3% (profundidade) |
+| Toque | `pressScale` (0,97) em botões, segmentos e abas | Mola média |
+| Segmentado | "Polegar" desliza até a opção | Mola, tique de vibração |
+| Regras → detalhe | `AnimatedContent` deslizando na horizontal | Volta pelo mesmo caminho |
+| Tela de bloqueio | Ampulheta gira 180° uma vez | 900 ms, sem loop |
+
+**Vibração** (`HapticFeedbackType`): `ToggleOn/Off` nos switches, `SegmentTick` nos segmentados, `Confirm` ao começar foco e desbloquear o Admin, `Reject` em senha errada. Rolagem e troca de aba não vibram.
+
+**Acessibilidade do movimento:**
+- *Remover animações* do Android → animações do Compose ficam instantâneas e a paralaxe é desligada (`LocalReduceMotion`).
+- *Texto de alto contraste* ou Android 11 e anterior → sem vidro, superfícies opacas (`LocalGlassEnabled`).
+- Nenhuma informação depende só de movimento ou cor (ex.: cota zerada mostra "Esgotada").
+
+**Por que shader e não um motor 3D:** Three.js é para navegador. O equivalente no Android é o Filament/SceneView (+5–8 MB, mais bateria). Os anéis com shader AGSL dão aparência de objeto 3D iluminado sem peso no APK.
+
 ## Ícones
 
 Material Symbols **Rounded**, peso 400, dentro do quadrado colorido da célula (estilo Ajustes do iOS):

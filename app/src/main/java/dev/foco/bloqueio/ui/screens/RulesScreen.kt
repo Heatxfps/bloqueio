@@ -1,5 +1,11 @@
 package dev.foco.bloqueio.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -60,12 +66,24 @@ import dev.foco.bloqueio.ui.theme.Radius
 @Composable
 fun RulesScreen() {
     var open by rememberSaveable { mutableStateOf<RuleType?>(null) }
-    val current = open
-    if (current == null) {
-        RulesOverview(onOpen = { open = it })
-    } else {
-        BackHandler { open = null }
-        RuleTypeScreen(current, onBack = { open = null })
+    BackHandler(enabled = open != null) { open = null }
+    // Avançar entra pela direita; voltar devolve. Curto e interrompível (HIG › Motion).
+    AnimatedContent(
+        targetState = open,
+        transitionSpec = {
+            if (targetState != null) {
+                (slideInHorizontally { it } + fadeIn()) togetherWith (slideOutHorizontally { -it / 4 } + fadeOut())
+            } else {
+                (slideInHorizontally { -it / 4 } + fadeIn()) togetherWith (slideOutHorizontally { it } + fadeOut())
+            }
+        },
+        label = "regras",
+    ) { type ->
+        if (type == null) {
+            RulesOverview(onOpen = { open = it })
+        } else {
+            RuleTypeScreen(type, onBack = { open = null })
+        }
     }
 }
 

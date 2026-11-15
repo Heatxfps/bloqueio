@@ -1,5 +1,7 @@
 package dev.foco.bloqueio.ui.screens
 
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -84,6 +86,7 @@ private fun AdminLogin(vault: PasswordVault) {
     val minutes = listOf(5, 15, 30)
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
 
     // PBKDF2 (120 mil iterações) roda fora da thread principal; o botão mostra o progresso.
     fun tryUnlock() {
@@ -94,11 +97,18 @@ private fun AdminLogin(vault: PasswordVault) {
             busy = false
             when (r) {
                 PasswordVault.Result.Ok -> {
+                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                     AdminSession.unlock(minutes[minutesIdx])
                     pw = ""
                 }
-                PasswordVault.Result.Wrong -> error = "Senha incorreta."
-                is PasswordVault.Result.LockedOut -> error = "Muitas tentativas. Tente em ${r.seconds} s."
+                PasswordVault.Result.Wrong -> {
+                    haptic.performHapticFeedback(HapticFeedbackType.Reject)
+                    error = "Senha incorreta."
+                }
+                is PasswordVault.Result.LockedOut -> {
+                    haptic.performHapticFeedback(HapticFeedbackType.Reject)
+                    error = "Muitas tentativas. Tente em ${r.seconds} s."
+                }
             }
         }
     }

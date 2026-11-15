@@ -71,6 +71,8 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+    // Desfoque do fundo (vidro) na camada de navegação — compatível com Compose 1.8.
+    implementation("dev.chrisbanes.haze:haze:1.6.10")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
 
     testImplementation("junit:junit:4.13.2")

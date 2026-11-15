@@ -1,5 +1,16 @@
 package dev.foco.bloqueio.ui.components
 
+import android.os.Build
+import android.view.WindowManager
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.window.DialogWindowProvider
+import dev.foco.bloqueio.ui.theme.LocalGlassEnabled
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -133,11 +144,30 @@ fun IosAlert(
     buttons: @Composable ColumnScope.() -> Unit,
 ) {
     Dialog(onDismissRequest = onDismiss) {
+        val view = LocalView.current
+        val glass = LocalGlassEnabled.current
+        LaunchedEffect(glass) {
+            val window = (view.parent as? DialogWindowProvider)?.window
+            if (glass && window != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                window.addFlags(WindowManager.LayoutParams.FLAG_BLUR_BEHIND)
+                window.attributes = window.attributes.apply { blurBehindRadius = 48 }
+            }
+        }
+        val appear = remember { Animatable(0f) }
+        LaunchedEffect(Unit) {
+            appear.animateTo(1f, spring(dampingRatio = 0.78f, stiffness = Spring.StiffnessMedium))
+        }
         Column(
             Modifier
                 .fillMaxWidth()
+                .graphicsLayer {
+                    val sc = 1.06f - 0.06f * appear.value
+                    scaleX = sc
+                    scaleY = sc
+                    alpha = appear.value.coerceIn(0f, 1f)
+                }
                 .clip(RoundedCornerShape(Radius.card))
-                .background(Bloqueio.colors.cell)
+                .background(if (glass) Bloqueio.colors.cell.copy(alpha = 0.9f) else Bloqueio.colors.cell)
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(10.dp),

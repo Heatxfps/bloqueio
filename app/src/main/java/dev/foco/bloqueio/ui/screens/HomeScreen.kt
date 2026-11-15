@@ -1,5 +1,11 @@
 package dev.foco.bloqueio.ui.screens
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import android.Manifest
 import android.content.Intent
 import android.os.Build
@@ -77,6 +83,7 @@ fun HomeScreen() {
     val state = remember(config, usage, now) { GuardService.state() }
 
     val setup = rememberSetupStatus()
+    val haptic = LocalHapticFeedback.current
 
     LargeTitleScaffold("Bloqueio") {
         // Sem acessibilidade/notificações o app não funciona: configuração vem primeiro.
@@ -100,8 +107,8 @@ fun HomeScreen() {
             )
             Spacer(Modifier.width(20.dp))
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                QuotaLine("Redes sociais", formatMinutes(state.socialLeftSec), Bloqueio.colors.social)
-                QuotaLine("Jogos", formatMinutes(state.gamesLeftSec), Bloqueio.colors.games)
+                QuotaLine("Redes sociais", state.socialLeftSec, Bloqueio.colors.social)
+                QuotaLine("Jogos", state.gamesLeftSec, Bloqueio.colors.games)
                 Text("restantes hoje", style = BloqueioType.footnote, color = Bloqueio.colors.secondaryLabel)
             }
         }
@@ -173,6 +180,7 @@ fun HomeScreen() {
                 onDismiss = { confirmFocus = false },
             ) {
                 TextButtonIos("Começar", color = Bloqueio.colors.focus) {
+                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
                     confirmFocus = false
                     runGuarded(context) {
                         RulesRepository.startFocus(if (total) FocusLevel.TOTAL else FocusLevel.PARTIAL, minutes)
@@ -187,13 +195,22 @@ fun HomeScreen() {
 }
 
 @Composable
-private fun QuotaLine(title: String, value: String, color: Color) {
+private fun QuotaLine(title: String, secondsLeft: Long, color: Color) {
+    // Conta a partir de zero ao abrir a tela (acompanha o enchimento dos anéis).
+    val shown = remember { Animatable(0f) }
+    LaunchedEffect(secondsLeft) {
+        shown.animateTo(secondsLeft.toFloat(), tween(durationMillis = 700, easing = FastOutSlowInEasing))
+    }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Spacer(Modifier.size(10.dp).clip(CircleShape).background(color))
         Spacer(Modifier.width(8.dp))
         Column {
             Text(title, style = BloqueioType.footnote, color = Bloqueio.colors.secondaryLabel)
-            Text(value, style = BloqueioType.title2, color = Bloqueio.colors.label)
+            // Cota zerada também em texto: a informação não depende só do anel/cor.
+            Text(
+                if (secondsLeft <= 0) "Esgotada" else formatMinutes(shown.value.toLong()),
+                style = BloqueioType.title2, color = Bloqueio.colors.label,
+            )
         }
     }
 }

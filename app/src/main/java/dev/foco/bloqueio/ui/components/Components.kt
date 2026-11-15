@@ -1,5 +1,24 @@
 package dev.foco.bloqueio.ui.components
 
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import dev.foco.bloqueio.ui.theme.LocalBottomBarInset
+import dev.foco.bloqueio.ui.theme.LocalTilt
+import dev.foco.bloqueio.ui.theme.pressScale
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.Canvas
@@ -68,21 +87,36 @@ fun LargeTitleScaffold(
     trailing: @Composable () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column(
-        modifier
-            .fillMaxSize()
-            .background(Bloqueio.colors.background)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = Spacing.screen),
-    ) {
-        Spacer(Modifier.height(24.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(title, style = BloqueioType.largeTitle, color = Bloqueio.colors.label, modifier = Modifier.weight(1f))
-            trailing()
+    val scroll = rememberScrollState()
+    val background = Bloqueio.colors.background
+    Box(modifier.fillMaxSize().background(background)) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(scroll)
+                .padding(horizontal = Spacing.screen),
+        ) {
+            Spacer(Modifier.height(24.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    title, style = BloqueioType.largeTitle, color = Bloqueio.colors.label,
+                    modifier = Modifier.weight(1f).semantics { heading() },
+                )
+                trailing()
+            }
+            Spacer(Modifier.height(12.dp))
+            content()
+            Spacer(Modifier.height(Spacing.section + LocalBottomBarInset.current))
         }
-        Spacer(Modifier.height(12.dp))
-        content()
-        Spacer(Modifier.height(Spacing.section))
+        // Efeito de borda de rolagem: o conteúdo esmaece ao passar sob o topo (HIG › Layout).
+        val edge by animateFloatAsState(if (scroll.value > 0) 1f else 0f, label = "edge")
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(28.dp)
+                .graphicsLayer { alpha = edge }
+                .background(Brush.verticalGradient(listOf(background, background.copy(alpha = 0f)))),
+        )
     }
 }
 
@@ -123,14 +157,42 @@ fun GroupedSection(
 /** Quadrado arredondado colorido com ícone branco (estilo Ajustes do iOS). */
 @Composable
 fun IconTile(icon: ImageVector, tint: Color, size: Dp = 29.dp) {
+    val tilt = LocalTilt.current
+    val corner = size * 0.24f
     Box(
         Modifier
             .size(size)
-            .clip(RoundedCornerShape(7.dp))
+            .clip(RoundedCornerShape(corner))
             .background(tint),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(size * 0.62f))
+        // Camada de luz (estilo ícones em camadas): brilho no topo que acompanha a inclinação.
+        // A leitura de tilt fica no graphicsLayer: só redesenha, não recompõe.
+        Box(
+            Modifier
+                .matchParentSize()
+                .graphicsLayer {
+                    translationX = tilt.value.x * size.toPx() * 0.08f
+                    translationY = tilt.value.y * size.toPx() * 0.08f
+                }
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.White.copy(alpha = 0.30f),
+                        0.55f to Color.White.copy(alpha = 0f),
+                        1f to Color.Black.copy(alpha = 0.10f),
+                    ),
+                ),
+        )
+        Icon(
+            icon, contentDescription = null, tint = Color.White,
+            modifier = Modifier
+                .size(size * 0.62f)
+                .graphicsLayer {
+                    // O símbolo fica "acima" da luz: desloca um pouco menos (profundidade).
+                    translationX = tilt.value.x * size.toPx() * 0.03f
+                    translationY = tilt.value.y * size.toPx() * 0.03f
+                },
+        )
     }
 }
 
@@ -259,11 +321,15 @@ fun SwitchCell(
     enabled: Boolean = true,
     showDivider: Boolean = true,
 ) {
+    val haptic = LocalHapticFeedback.current
     Cell(
         title = title,
         subtitle = subtitle,
         showDivider = showDivider,
-        modifier = Modifier.toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange),
+        modifier = Modifier.toggleable(checked, enabled = enabled, role = Role.Switch) { v ->
+            haptic.performHapticFeedback(if (v) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff)
+            onCheckedChange(v)
+        },
         trailing = { IosSwitch(checked, onCheckedChange = null, enabled = enabled) },
     )
 }
@@ -276,13 +342,21 @@ fun PrimaryButton(
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
+    val source = remember { MutableInteractionSource() }
     Box(
         modifier
             .fillMaxWidth()
+            .pressScale(source)
             .heightIn(min = 50.dp)
             .clip(RoundedCornerShape(Radius.button))
             .background(if (enabled) color else color.copy(alpha = 0.35f))
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .clickable(
+                interactionSource = source,
+                indication = LocalIndication.current,
+                enabled = enabled,
+                role = Role.Button,
+                onClick = onClick,
+            )
             .padding(horizontal = 16.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -293,24 +367,54 @@ fun PrimaryButton(
 /** Controle segmentado do iOS, com semântica de grupo selecionável e alvos de 44 dp. */
 @Composable
 fun SegmentedControl(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
-    Row(
+    val haptic = LocalHapticFeedback.current
+    BoxWithConstraints(
         modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(Bloqueio.colors.cellSecondary)
-            .padding(2.dp)
+            .padding(2.dp),
+    ) {
+        // O "polegar" branco desliza até a opção escolhida (com mola), como no iOS.
+        val segment = maxWidth / options.size
+        val thumbX by animateDpAsState(
+            segment * selected,
+            spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow),
+            label = "segment",
+        )
+        val thumbColor = Bloqueio.colors.cell
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .drawBehind {
+                drawRoundRect(
+                    color = thumbColor,
+                    topLeft = Offset(thumbX.toPx(), 0f),
+                    size = Size(segment.toPx(), size.height),
+                    cornerRadius = CornerRadius(10.dp.toPx()),
+                )
+            }
             .selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         options.forEachIndexed { i, label ->
             val isSel = i == selected
+            val source = remember { MutableInteractionSource() }
             Box(
                 Modifier
                     .weight(1f)
                     .heightIn(min = 44.dp)
+                    .pressScale(source, pressed = 0.95f)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(if (isSel) Bloqueio.colors.cell else Color.Transparent)
-                    .selectable(selected = isSel, role = Role.Tab, onClick = { onSelect(i) })
+                    .selectable(
+                        selected = isSel,
+                        interactionSource = source,
+                        indication = null,
+                        role = Role.Tab,
+                        onClick = {
+                            if (!isSel) haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                            onSelect(i)
+                        },
+                    )
                     .padding(horizontal = 4.dp, vertical = 6.dp),
                 contentAlignment = Alignment.Center,
             ) {
@@ -323,33 +427,10 @@ fun SegmentedControl(options: List<String>, selected: Int, onSelect: (Int) -> Un
             }
         }
     }
+    }
 }
 
 @Composable
 fun LockBadge() {
     Icon(Icons.Rounded.Lock, "Só o admin edita", tint = Bloqueio.colors.secondaryLabel, modifier = Modifier.size(12.dp))
-}
-
-/**
- * Anel duplo estilo Atividade: externo = redes (rosa), interno = jogos (índigo).
- * Progresso = fração RESTANTE.
- */
-@Composable
-fun QuotaRing(socialLeft: Float, gamesLeft: Float, modifier: Modifier = Modifier, size: Dp = 132.dp) {
-    val social = Bloqueio.colors.social
-    val games = Bloqueio.colors.games
-    Canvas(modifier.size(size)) {
-        val stroke = this.size.minDimension * 0.12f
-        fun ring(inset: Float, color: Color, fraction: Float) {
-            val d = this.size.minDimension - inset * 2 - stroke
-            val topLeft = Offset(inset + stroke / 2, inset + stroke / 2)
-            drawArc(color.copy(alpha = 0.2f), 0f, 360f, false, topLeft, Size(d, d), style = Stroke(stroke))
-            drawArc(
-                color, -90f, 360f * fraction.coerceIn(0f, 1f), false, topLeft, Size(d, d),
-                style = Stroke(stroke, cap = StrokeCap.Round),
-            )
-        }
-        ring(0f, social, socialLeft)
-        ring(stroke * 1.15f, games, gamesLeft)
-    }
 }

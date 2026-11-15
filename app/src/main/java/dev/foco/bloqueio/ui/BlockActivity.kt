@@ -1,5 +1,12 @@
 package dev.foco.bloqueio.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.graphicsLayer
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -65,7 +72,15 @@ class BlockActivity : ComponentActivity() {
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    IconTile(icon, tint, size = 84.dp)
+                    val turn = remember { Animatable(0f) }
+                    LaunchedEffect(Unit) {
+                        if (icon == Icons.Rounded.HourglassBottom) {
+                            turn.animateTo(180f, tween(durationMillis = 900, delayMillis = 250, easing = FastOutSlowInEasing))
+                        }
+                    }
+                    Box(Modifier.graphicsLayer { rotationZ = turn.value }) {
+                        IconTile(icon, tint, size = 84.dp)
+                    }
                     Spacer(Modifier.height(24.dp))
                     Text(
                         reason.title, style = BloqueioType.largeTitle, color = Bloqueio.colors.label,

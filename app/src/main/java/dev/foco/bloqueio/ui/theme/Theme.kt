@@ -10,7 +10,6 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
-import android.provider.Settings
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -126,9 +125,10 @@ private fun BloqueioColors.highContrast(dark: Boolean) = copy(
 fun BloqueioTheme(content: @Composable () -> Unit) {
     val dark = isSystemInDarkTheme()
     val context = LocalContext.current
-    val highContrast = remember {
-        Settings.Secure.getInt(context.contentResolver, "high_text_contrast_enabled", 0) == 1
-    }
+    val highContrast = remember { isHighContrast(context) }
+    val reduceMotion = remember { isReduceMotion(context) }
+    val glass = remember { isGlassAllowed(context) }
+    val tilt = rememberTilt(enabled = !reduceMotion)
     val base = if (dark) DarkColors else LightColors
     val c = if (highContrast) base.highContrast(dark) else base
     val scheme = if (dark) {
@@ -136,7 +136,12 @@ fun BloqueioTheme(content: @Composable () -> Unit) {
     } else {
         lightColorScheme(primary = c.accent, background = c.background, surface = c.cell, onSurface = c.label)
     }
-    CompositionLocalProvider(LocalColors provides c) {
+    CompositionLocalProvider(
+        LocalColors provides c,
+        LocalReduceMotion provides reduceMotion,
+        LocalGlassEnabled provides glass,
+        LocalTilt provides tilt,
+    ) {
         MaterialTheme(colorScheme = scheme, content = content)
     }
 }
