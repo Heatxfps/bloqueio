@@ -13,6 +13,8 @@ import dev.foco.bloqueio.enforce.Verdict
 import dev.foco.bloqueio.notify.NowBarNotifier
 import dev.foco.bloqueio.securefolder.CleanEnvironment
 import dev.foco.bloqueio.ui.BlockActivity
+import dev.foco.bloqueio.ui.HubActivity
+import dev.foco.bloqueio.enforce.BlockReason
 
 /**
  * Olhos do app: sabe qual app está em primeiro plano (cotas), bloqueia na abertura
@@ -61,12 +63,15 @@ class GuardAccessibilityService : AccessibilityService() {
             is Verdict.Block -> if (now - lastActionAt > 1_500) {
                 lastActionAt = now
                 performGlobalAction(GLOBAL_ACTION_HOME)
-                startActivity(
+                // No descanso, o lugar certo é o Hub (relógio, apps liberados), não a tela de bloqueio.
+                val target = if (verdict.reason == BlockReason.SCHEDULE) {
+                    Intent(this, HubActivity::class.java)
+                } else {
                     Intent(this, BlockActivity::class.java)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                         .putExtra(BlockActivity.EXTRA_REASON, verdict.reason.name)
-                        .putExtra(BlockActivity.EXTRA_PACKAGE, pkg),
-                )
+                        .putExtra(BlockActivity.EXTRA_PACKAGE, pkg)
+                }
+                startActivity(target.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
             }
             is Verdict.Partial -> {
                 if (!DistractionDetector.supports(pkg) || now - lastScanAt < 350) return

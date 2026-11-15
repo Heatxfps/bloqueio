@@ -42,6 +42,27 @@
             android:launchMode="singleTask"
             android:taskAffinity="dev.foco.bloqueio.block" />
 
+        <!-- Hub do horário de descanso. O alias HOME só fica ativo durante o descanso. -->
+        <activity
+            android:name=".ui.HubActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:stateNotNeeded="true"
+            android:taskAffinity="dev.foco.bloqueio.hub" />
+
+        <activity-alias
+            android:name=".ui.HubHome"
+            android:enabled="false"
+            android:exported="true"
+            android:targetActivity=".ui.HubActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
+
         <receiver
             android:name=".admin.BloqueioAdminReceiver"
             android:exported="true"

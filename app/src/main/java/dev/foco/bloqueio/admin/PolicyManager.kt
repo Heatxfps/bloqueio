@@ -1,7 +1,11 @@
 package dev.foco.bloqueio.admin
 
 import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.UserManager
 import android.util.Log
@@ -81,9 +85,39 @@ class PolicyManager(private val context: Context) {
         prefs.edit().putStringSet(KEY_SUSPENDED, desired - failed).apply()
     }
 
+    val isHubActive: Boolean get() = prefs.getBoolean(KEY_HUB, false)
+
+    /**
+     * Hub do descanso como tela inicial obrigatória: liga o alias HOME e, como Device Owner,
+     * fixa-o como launcher preferido. Desligar devolve o launcher do usuário.
+     * (Não usa lock task: nele o painel de controles rápidos fica desativado.)
+     */
+    fun setHubAsHome(enabled: Boolean) {
+        if (enabled == isHubActive) return
+        val alias = ComponentName(context, HUB_ALIAS)
+        context.packageManager.setComponentEnabledSetting(
+            alias,
+            if (enabled) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+            PackageManager.DONT_KILL_APP,
+        )
+        if (isDeviceOwner) {
+            if (enabled) {
+                val filter = IntentFilter(Intent.ACTION_MAIN).apply {
+                    addCategory(Intent.CATEGORY_HOME)
+                    addCategory(Intent.CATEGORY_DEFAULT)
+                }
+                guard { dpm.addPersistentPreferredActivity(admin, filter, alias) }
+            } else {
+                guard { dpm.clearPackagePersistentPreferredActivities(admin, context.packageName) }
+            }
+        }
+        prefs.edit().putBoolean(KEY_HUB, enabled).apply()
+    }
+
     /** Remove o Device Owner (somente pelo Admin). Libera tudo antes. */
     fun removeProtection() {
         if (!isDeviceOwner) return
+        setHubAsHome(false)
         syncSuspended(emptySet())
         guard { dpm.setAlwaysOnVpnPackage(admin, null, false) }
         guard { dpm.setApplicationRestrictions(admin, "com.tailscale.ipn", Bundle()) }
@@ -114,5 +148,7 @@ class PolicyManager(private val context: Context) {
         const val KEY_SUSPENDED = "suspended"
         const val KEY_PROTECTED = "protected"
         const val KEY_FORCE_ENABLED = "ForceEnabled"
+        const val KEY_HUB = "hub_active"
+        const val HUB_ALIAS = "dev.foco.bloqueio.ui.HubHome"
     }
 }

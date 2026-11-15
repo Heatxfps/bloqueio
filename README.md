@@ -10,7 +10,7 @@ App Android de **autocontrole digital** com proteção real: trava a VPN no Tail
 |---|---|---|---|
 | 1 | VPN travada no Tailscale + failover | Device Owner: política `ForceEnabled` do Tailscale (botão desconectar desabilitado) + *Always-on VPN* + `DISALLOW_CONFIG_VPN`. Sem configuração: se a rede tem internet mas nada passa pela VPN, o Tailscale é desligado e religado quando o servidor volta | [VPN](docs/funcionalidades/01-vpn.md) |
 | 2 | Cotas de distração (20 min redes / 20 min jogos) | Contagem em tempo real pelo serviço de acessibilidade. Esgotou: jogos bloqueados; redes sociais em bloqueio **parcial** (Reels, Shorts, Explorar…) | [Cotas](docs/funcionalidades/02-cotas.md) |
-| 3 | Toque de recolher (ex.: 20:00–04:00) | Só apps essenciais funcionam; o resto é suspenso | [Horário](docs/funcionalidades/03-horario.md) |
+| 3 | Horário de descanso com Hub (ex.: 20:00–04:00) | O celular vira um Hub com relógio, contagem regressiva e só os apps essenciais; notificações e controles rápidos continuam funcionando | [Horário](docs/funcionalidades/03-horario.md) |
 | 4 | Pasta segura / ambiente limpo | Apps abertos pela pasta rodam com Opções do desenvolvedor, depuração USB e Wi‑Fi desligadas; ao sair, tudo volta | [Pasta segura](docs/funcionalidades/04-pasta-segura.md) |
 | 5 | Foco total e parcial | Total: redes + jogos bloqueados. Parcial: jogos bloqueados, redes só com as áreas de **criação** liberadas | [Foco](docs/funcionalidades/05-foco.md) |
 | 6 | Impossível desinstalar | Device Owner + `setUninstallBlocked` + bloqueio de reset de fábrica/modo seguro | [Proteção](docs/funcionalidades/06-protecao.md) |

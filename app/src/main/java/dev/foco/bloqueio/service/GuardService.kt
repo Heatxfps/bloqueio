@@ -19,6 +19,7 @@ import dev.foco.bloqueio.enforce.Enforcer
 import dev.foco.bloqueio.enforce.QuotaTracker
 import dev.foco.bloqueio.enforce.Verdict
 import dev.foco.bloqueio.notify.NowBarNotifier
+import dev.foco.bloqueio.ui.HubActivity
 import dev.foco.bloqueio.securefolder.CleanEnvironment
 import dev.foco.bloqueio.vpn.HostMonitor
 import dev.foco.bloqueio.vpn.TailscaleController
@@ -69,7 +70,14 @@ class GuardService : Service() {
             },
             ContextCompat.RECEIVER_EXPORTED,
         )
-        scope.launch { RulesRepository.config.collect { policy.applyBaseline(it) } }
+        scope.launch {
+            RulesRepository.config.collect {
+                policy.applyBaseline(it)
+                // Mudou regra/horário/pausa: reaplica já, sem esperar o próximo ciclo de 30 s.
+                runCatching { applyPolicies() }
+                runCatching { syncHub() }
+            }
+        }
         scope.launch { monitor.state.collect { GuardState.vpn.value = it } }
         scope.launch { loop() }
         scope.launch {
@@ -104,6 +112,7 @@ class GuardService : Service() {
                     applyPolicies()
                     lastSuspendSync = now
                 }
+                syncHub()
                 healAccessibility()
                 restoreCleanEnvIfOrphan()
                 NowBarNotifier.update(this, currentState(), monitor.state.value)
@@ -122,6 +131,18 @@ class GuardService : Service() {
     }
 
     /** Suspende (Device Owner) tudo que está em Block; o resto fica com a acessibilidade. */
+    /** Liga o Hub como tela inicial no começo do descanso e devolve o launcher no fim. */
+    private fun syncHub() {
+        val want = currentState().inSchedule && policy.isDeviceOwner
+        if (want == policy.isHubActive) return
+        policy.setHubAsHome(want)
+        if (want) {
+            runCatching {
+                startActivity(Intent(this, HubActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }
+        }
+    }
+
     private fun applyPolicies(force: Boolean = false) {
         if (!policy.isDeviceOwner) return
         val state = currentState()

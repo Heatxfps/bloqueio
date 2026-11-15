@@ -30,7 +30,7 @@ data class EnforceState(
 ) {
     val socialLeftSec get() = (config.quotas.socialMinutes * 60L - usedSocialSec).coerceAtLeast(0)
     val gamesLeftSec get() = (config.quotas.gamesMinutes * 60L - usedGamesSec).coerceAtLeast(0)
-    val inSchedule get() = config.schedule.enabled &&
+    val inSchedule get() = config.schedule.enabled && config.schedule.pausedUntil <= now &&
         ScheduleWindow.contains(minuteOfDay, config.schedule.startMinute, config.schedule.endMinute)
     val focusLevel get() = if (config.focus.isActive(now)) config.focus.level else FocusLevel.OFF
 }
