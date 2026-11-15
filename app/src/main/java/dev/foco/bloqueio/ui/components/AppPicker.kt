@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -25,7 +26,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.text.style.TextAlign
 import dev.foco.bloqueio.data.AppCatalog
+import dev.foco.bloqueio.data.InstalledApp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import dev.foco.bloqueio.ui.theme.Bloqueio
 import dev.foco.bloqueio.ui.theme.BloqueioType
 import dev.foco.bloqueio.ui.theme.Radius
@@ -37,7 +43,11 @@ import dev.foco.bloqueio.ui.theme.Radius
 @Composable
 fun AppPickerDialog(title: String, exclude: Set<String>, onPick: (String) -> Unit, onDismiss: () -> Unit) {
     val context = LocalContext.current
-    val apps = remember { AppCatalog(context).launchableApps(force = true) }
+    // Ler rótulos de todos os apps leva tempo: carrega fora da thread principal.
+    val loaded by produceState<List<InstalledApp>?>(initialValue = null) {
+        value = withContext(Dispatchers.Default) { AppCatalog(context).launchableApps(force = true) }
+    }
+    val apps = loaded.orEmpty()
     var query by remember { mutableStateOf("") }
     val filtered = apps.filter {
         it.packageName !in exclude &&
@@ -73,29 +83,49 @@ fun AppPickerDialog(title: String, exclude: Set<String>, onPick: (String) -> Uni
             ) {
                 TextFieldCell(query, { query = it }, "Buscar ou digitar pacote (com.exemplo.app)")
             }
-            LazyColumn(
-                Modifier
-                    .padding(16.dp)
-                    .clip(RoundedCornerShape(Radius.cell))
-                    .background(Bloqueio.colors.cell),
-            ) {
-                if (looksLikePackage && apps.none { it.packageName == query.trim() }) {
-                    item {
+            if (loaded == null) {
+                Column(
+                    Modifier.fillMaxWidth().padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    CircularProgressIndicator(color = Bloqueio.colors.accent)
+                    Text(
+                        "Carregando apps…", style = BloqueioType.callout, color = Bloqueio.colors.secondaryLabel,
+                        modifier = Modifier.padding(top = 12.dp),
+                    )
+                }
+            } else if (filtered.isEmpty() && !looksLikePackage) {
+                Text(
+                    "Nenhum app encontrado para \"${query.trim()}\". Você também pode digitar o nome do pacote, como com.exemplo.app.",
+                    style = BloqueioType.callout, color = Bloqueio.colors.secondaryLabel,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(32.dp),
+                )
+            } else {
+                LazyColumn(
+                    Modifier
+                        .padding(16.dp)
+                        .clip(RoundedCornerShape(Radius.cell))
+                        .background(Bloqueio.colors.cell),
+                ) {
+                    if (looksLikePackage && apps.none { it.packageName == query.trim() }) {
+                        item {
+                            Cell(
+                                title = "Adicionar \"${query.trim()}\"",
+                                subtitle = "Regra vale mesmo sem o app instalado",
+                                titleColor = Bloqueio.colors.accent,
+                                onClick = { onPick(query.trim()) },
+                            )
+                        }
+                    }
+                    items(filtered, key = { it.packageName }) { app ->
                         Cell(
-                            title = "Adicionar \"${query.trim()}\"",
-                            subtitle = "Regra vale mesmo sem o app instalado",
-                            titleColor = Bloqueio.colors.accent,
-                            onClick = { onPick(query.trim()) },
+                            title = app.label,
+                            subtitle = app.packageName,
+                            leading = { AppIcon(app.packageName) },
+                            onClick = { onPick(app.packageName) },
                         )
                     }
-                }
-                items(filtered, key = { it.packageName }) { app ->
-                    Cell(
-                        title = app.label,
-                        subtitle = app.packageName,
-                        leading = { AppIcon(app.packageName) },
-                        onClick = { onPick(app.packageName) },
-                    )
                 }
             }
         }

@@ -69,7 +69,7 @@ class MainActivity : ComponentActivity() {
 private fun Root() {
     val context = LocalContext.current
     val vault = remember { PasswordVault(context) }
-    var ready by remember { mutableStateOf(vault.isSetUp()) }
+    var ready by rememberSaveable { mutableStateOf(vault.isSetUp()) }
     Box(
         Modifier
             .fillMaxSize()

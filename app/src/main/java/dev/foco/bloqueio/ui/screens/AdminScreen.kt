@@ -19,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,6 +50,9 @@ import dev.foco.bloqueio.ui.components.TextButtonIos
 import dev.foco.bloqueio.ui.components.TextFieldCell
 import dev.foco.bloqueio.ui.theme.Bloqueio
 import dev.foco.bloqueio.ui.theme.BloqueioType
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun AdminScreen(vault: PasswordVault) {
@@ -65,16 +69,24 @@ private fun AdminLogin(vault: PasswordVault) {
     var recovering by remember { mutableStateOf(false) }
     var newCode by remember { mutableStateOf<String?>(null) }
     val minutes = listOf(5, 15, 30)
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
 
+    // PBKDF2 (120 mil iterações) roda fora da thread principal; o botão mostra o progresso.
     fun tryUnlock() {
-        if (pw.isEmpty()) return
-        when (val r = vault.verify(pw)) {
-            PasswordVault.Result.Ok -> {
-                AdminSession.unlock(minutes[minutesIdx])
-                pw = ""
+        if (pw.isEmpty() || busy) return
+        busy = true
+        scope.launch {
+            val r = withContext(Dispatchers.Default) { vault.verify(pw) }
+            busy = false
+            when (r) {
+                PasswordVault.Result.Ok -> {
+                    AdminSession.unlock(minutes[minutesIdx])
+                    pw = ""
+                }
+                PasswordVault.Result.Wrong -> error = "Senha incorreta."
+                is PasswordVault.Result.LockedOut -> error = "Muitas tentativas. Tente em ${r.seconds} s."
             }
-            PasswordVault.Result.Wrong -> error = "Senha incorreta."
-            is PasswordVault.Result.LockedOut -> error = "Muitas tentativas. Tente em ${r.seconds} s."
         }
     }
 
@@ -99,7 +111,7 @@ private fun AdminLogin(vault: PasswordVault) {
             }
         }
         Spacer(Modifier.height(24.dp))
-        PrimaryButton("Desbloquear", enabled = pw.isNotEmpty(), onClick = ::tryUnlock)
+        PrimaryButton(if (busy) "Verificando…" else "Desbloquear", enabled = pw.isNotEmpty() && !busy, onClick = ::tryUnlock)
         TextButtonIos("Esqueci a senha") { recovering = true }
     }
 
@@ -116,14 +128,19 @@ private fun AdminLogin(vault: PasswordVault) {
                 AlertField(np, { np = it }, "Nova senha", secure = true)
             },
         ) {
-            TextButtonIos("Redefinir") {
+            TextButtonIos(if (busy) "Verificando…" else "Redefinir") {
+                if (busy) return@TextButtonIos
                 if (np.length < PasswordVault.MIN_LENGTH) {
                     msg = "A nova senha precisa de ${PasswordVault.MIN_LENGTH}+ caracteres."
                 } else {
-                    val c = vault.resetWithRecovery(code, np)
-                    if (c == null) msg = "Código inválido (ou muitas tentativas)." else {
-                        recovering = false
-                        newCode = c
+                    busy = true
+                    scope.launch {
+                        val c = withContext(Dispatchers.Default) { vault.resetWithRecovery(code, np) }
+                        busy = false
+                        if (c == null) msg = "Código inválido (ou muitas tentativas)." else {
+                            recovering = false
+                            newCode = c
+                        }
                     }
                 }
             }
@@ -157,6 +174,8 @@ private fun NewRecoveryCodeAlert(code: String, onDismiss: () -> Unit) {
 @Composable
 private fun AdminPanel(vault: PasswordVault) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
     val config by RulesRepository.config.collectAsState()
     val until by AdminSession.unlockedUntil.collectAsState()
     val now by rememberNow()
@@ -250,18 +269,24 @@ private fun AdminPanel(vault: PasswordVault) {
             AlertField(cur, { cur = it }, "Senha atual", secure = true)
             AlertField(np, { np = it }, "Nova senha", secure = true)
         }) {
-            TextButtonIos("Salvar") {
+            TextButtonIos(if (busy) "Salvando…" else "Salvar") {
+                if (busy) return@TextButtonIos
                 if (np.length < PasswordVault.MIN_LENGTH) {
                     msg = "Mínimo de ${PasswordVault.MIN_LENGTH} caracteres."
                     return@TextButtonIos
                 }
-                when (val res = vault.change(cur, np)) {
-                    PasswordVault.Result.Ok -> {
-                        changingPw = false
-                        Toast.makeText(context, "Senha alterada", Toast.LENGTH_SHORT).show()
+                busy = true
+                scope.launch {
+                    val res = withContext(Dispatchers.Default) { vault.change(cur, np) }
+                    busy = false
+                    when (res) {
+                        PasswordVault.Result.Ok -> {
+                            changingPw = false
+                            Toast.makeText(context, "Senha alterada", Toast.LENGTH_SHORT).show()
+                        }
+                        PasswordVault.Result.Wrong -> msg = "Senha atual incorreta."
+                        is PasswordVault.Result.LockedOut -> msg = "Aguarde ${res.seconds} s."
                     }
-                    PasswordVault.Result.Wrong -> msg = "Senha atual incorreta."
-                    is PasswordVault.Result.LockedOut -> msg = "Aguarde ${res.seconds} s."
                 }
             }
             TextButtonIos("Cancelar", color = Bloqueio.colors.secondaryLabel) { changingPw = false }

@@ -73,22 +73,15 @@ fun HomeScreen() {
     val config by RulesRepository.config.collectAsState()
     val usage by QuotaTracker.usage.collectAsState()
     val vpn by GuardState.vpn.collectAsState()
-    val accessibilityOn by GuardState.accessibilityConnected.collectAsState()
     val now by rememberNow(15_000)
     val state = remember(config, usage, now) { GuardService.state() }
 
-    var resumeTick by remember { mutableIntStateOf(0) }
-    LifecycleResumeEffect(Unit) {
-        resumeTick++
-        onPauseOrDispose { }
-    }
-    val policy = remember { PolicyManager(context) }
-    val isOwner = remember(resumeTick) { policy.isDeviceOwner }
-    val notificationsOn = remember(resumeTick) { NotificationManagerCompat.from(context).areNotificationsEnabled() }
-    val secureSettings = remember(resumeTick) { CleanEnvironment.canWriteSecureSettings(context) }
-    val notifLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { resumeTick++ }
+    val setup = rememberSetupStatus()
 
     LargeTitleScaffold("Bloqueio") {
+        // Sem acessibilidade/notificações o app não funciona: configuração vem primeiro.
+        if (!setup.essentialsDone) SetupSection(setup)
+
         // ----- Cotas -----
         Row(
             Modifier
@@ -189,23 +182,7 @@ fun HomeScreen() {
             }
         }
 
-        // ----- Configuração -----
-        val allDone = isOwner && accessibilityOn && notificationsOn && secureSettings
-        if (!allDone) {
-            GroupedSection(
-                header = "Configuração",
-                footer = "Device Owner e configurações seguras são ativados pelo PC via ADB. Veja docs/INSTALACAO.md no repositório.",
-            ) {
-                SetupCell("Acessibilidade", accessibilityOn, Icons.Rounded.TouchApp) {
-                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                }
-                SetupCell("Notificações (Now Bar)", notificationsOn, Icons.Rounded.Notifications) {
-                    if (Build.VERSION.SDK_INT >= 33) notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }
-                SetupCell("Device Owner", isOwner, Icons.Rounded.AdminPanelSettings, onClick = null)
-                SetupCell("Configurações seguras", secureSettings, Icons.Rounded.Key, last = true, onClick = null)
-            }
-        }
+        if (setup.essentialsDone && !setup.allDone) SetupSection(setup, header = "Configuração")
     }
 }
 
@@ -219,23 +196,4 @@ private fun QuotaLine(title: String, value: String, color: Color) {
             Text(value, style = BloqueioType.title2, color = Bloqueio.colors.label)
         }
     }
-}
-
-@Composable
-private fun SetupCell(
-    title: String,
-    done: Boolean,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    last: Boolean = false,
-    onClick: (() -> Unit)?,
-) {
-    Cell(
-        title = title,
-        leading = { IconTile(icon, if (done) Bloqueio.colors.success else Bloqueio.colors.gray) },
-        value = if (done) "Ativo" else if (onClick != null) "Ativar" else "Via ADB",
-        valueColor = if (done) Bloqueio.colors.successText else if (onClick != null) Bloqueio.colors.accent else null,
-        onClick = if (done) null else onClick,
-        chevron = !done && onClick != null,
-        showDivider = !last,
-    )
 }
