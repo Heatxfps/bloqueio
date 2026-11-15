@@ -41,6 +41,11 @@ class EnforcerTest {
         assertEquals(Verdict.Allow, Enforcer.decide("dialer", Category.NONE, false, state(minute = 22 * 60)))
     }
 
+    @Test fun `pasta segura funciona no descanso`() {
+        val c = base.copy(secureFolder = listOf("banco"))
+        assertEquals(Verdict.Allow, Enforcer.decide("banco", Category.NONE, false, state(c, minute = 22 * 60)))
+    }
+
     @Test fun `cota de jogos esgotada bloqueia jogo`() =
         assertEquals(
             Verdict.Block(BlockReason.GAME_QUOTA),

@@ -42,7 +42,8 @@ object Enforcer {
         if (alwaysAllowed) return Verdict.Allow
         val c = s.config
         if (pkg in c.packagesOf(RuleType.BLOCK)) return Verdict.Block(BlockReason.RULE)
-        if (s.inSchedule && pkg !in c.packagesOf(RuleType.ESSENTIAL)) {
+        // No descanso funcionam os essenciais e os apps da pasta segura (bancos).
+        if (s.inSchedule && pkg !in c.packagesOf(RuleType.ESSENTIAL) && pkg !in c.secureFolder) {
             return Verdict.Block(BlockReason.SCHEDULE)
         }
         val focus = s.focusLevel

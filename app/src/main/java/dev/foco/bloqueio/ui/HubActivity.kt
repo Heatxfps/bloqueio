@@ -1,5 +1,7 @@
 package dev.foco.bloqueio.ui
 
+import dev.foco.bloqueio.securefolder.CleanEnvironment
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -139,6 +141,12 @@ private fun Hub(onFinished: () -> Unit) {
                 .sortedBy { it.second.lowercase() }
         }
     }
+    // Pasta segura (bancos): liberada no descanso e aberta no ambiente limpo.
+    val folder by produceState(initialValue = emptyList<Pair<String, String>>(), config.secureFolder) {
+        value = withContext(Dispatchers.Default) {
+            config.secureFolder.filter { catalog.isInstalled(it) }.map { it to catalog.label(it) }
+        }
+    }
 
     val t = LocalDateTime.now()
     val minuteNow = t.hour * 60 + t.minute
@@ -201,7 +209,19 @@ private fun Hub(onFinished: () -> Unit) {
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
-            items(apps, key = { it.first }) { (pkg, label) -> HubApp(pkg, label) }
+            items(apps, key = { it.first }) { (pkg, label) -> HubApp(pkg, label) { launchApp(context, pkg) } }
+            if (folder.isNotEmpty()) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Text(
+                        "PASTA SEGURA · AMBIENTE LIMPO",
+                        style = BloqueioType.caption, color = Bloqueio.colors.secondaryLabel,
+                        modifier = Modifier.padding(top = 10.dp),
+                    )
+                }
+                items(folder, key = { "f:" + it.first }) { (pkg, label) ->
+                    HubApp(pkg, label) { CleanEnvironment.launch(context, pkg) }
+                }
+            }
         }
 
         Text(
@@ -237,18 +257,20 @@ private fun CountdownRing(fraction: Float) {
 }
 
 @Composable
-private fun HubApp(pkg: String, label: String) {
-    val context = LocalContext.current
+private fun launchApp(context: android.content.Context, pkg: String) {
+    context.packageManager.getLaunchIntentForPackage(pkg)?.let {
+        context.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+}
+
+@Composable
+private fun HubApp(pkg: String, label: String, onOpen: () -> Unit) {
     val source = remember { MutableInteractionSource() }
     Column(
         Modifier
             .pressScale(source, pressed = 0.92f)
             .clip(RoundedCornerShape(14.dp))
-            .clickable(interactionSource = source, indication = null, role = Role.Button) {
-                context.packageManager.getLaunchIntentForPackage(pkg)?.let {
-                    context.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                }
-            }
+            .clickable(interactionSource = source, indication = null, role = Role.Button, onClick = onOpen)
             .heightIn(min = 48.dp)
             .padding(vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
