@@ -43,13 +43,9 @@ data class Quotas(val socialMinutes: Int = 20, val gamesMinutes: Int = 20)
 data class VpnConfig(
     val enabled: Boolean = true,
     val tailscalePackage: String = "com.tailscale.ipn",
-    /** IP Tailscale do servidor host / exit node, ex.: 100.101.102.103. */
-    val hostIp: String = "",
-    val hostPort: Int = 22,
+    /** Falhas seguidas (sem internet pela VPN com a rede física ok) antes de desconectar. */
     val failThreshold: Int = 3,
     val retryMinutes: Int = 5,
-    /** Opcional: URL pública do host para detectar o retorno sem religar o Tailscale. */
-    val publicHealthUrl: String = "",
 )
 
 @Serializable

@@ -50,7 +50,6 @@ Agora pode logar Google/Samsung normalmente.
 1. Crie a **senha mestra** e anote o **código de recuperação** (aparece uma única vez).
 2. Ative o **serviço de acessibilidade** "Bloqueio" (o app abre a tela certa).
 3. Permita **notificações** (Now Bar).
-4. Em *Admin → VPN*, informe o IP Tailscale do servidor (ex.: `100.101.102.103`) e a porta de verificação.
 
 ## Desinstalar (somente admin)
 

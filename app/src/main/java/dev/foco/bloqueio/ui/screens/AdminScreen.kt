@@ -290,47 +290,19 @@ private fun AdminPanel(vault: PasswordVault) {
 @Composable
 private fun VpnSection(config: AppConfig, update: ((AppConfig) -> AppConfig) -> Unit) {
     val vpn = config.vpn
-    var host by remember(vpn.hostIp) { mutableStateOf(vpn.hostIp) }
-    var port by remember(vpn.hostPort) { mutableStateOf(vpn.hostPort.toString()) }
-    var url by remember(vpn.publicHealthUrl) { mutableStateOf(vpn.publicHealthUrl) }
-    val dirty = host != vpn.hostIp || port != vpn.hostPort.toString() || url != vpn.publicHealthUrl
-
     GroupedSection(
         header = "VPN Tailscale",
-        footer = "Se o host não responder ${vpn.failThreshold}× seguidas (e não houver internet pela VPN), o Tailscale é desligado. O retorno é testado a cada ${vpn.retryMinutes} min.",
+        footer = "O botão de desconectar do Tailscale fica desabilitado (política ForceEnabled). " +
+            "Se o Wi‑Fi/dados tiver internet mas nada passar pela VPN ${vpn.failThreshold}× seguidas, " +
+            "o servidor caiu: o Tailscale é desligado e a volta é testada a cada ${vpn.retryMinutes} min.",
     ) {
         Cell("Travar VPN no Tailscale", trailing = {
             IosSwitch(vpn.enabled, { v -> update { it.copy(vpn = it.vpn.copy(enabled = v)) } })
         })
-        TextFieldCell(host, { host = it.trim() }, "100.x.y.z", label = "IP do host", keyboardType = KeyboardType.Uri)
-        Divider()
-        TextFieldCell(port, { port = it.filter(Char::isDigit).take(5) }, "22", label = "Porta", keyboardType = KeyboardType.Number)
-        Divider()
-        TextFieldCell(url, { url = it.trim() }, "opcional", label = "URL pública", keyboardType = KeyboardType.Uri)
-        Divider()
         StepperCell("Testar retorno a cada", "${vpn.retryMinutes} min", {
             update { it.copy(vpn = it.vpn.copy(retryMinutes = (it.vpn.retryMinutes - 1).coerceAtLeast(1))) }
         }, {
             update { it.copy(vpn = it.vpn.copy(retryMinutes = (it.vpn.retryMinutes + 1).coerceAtMost(60))) }
-        }, showDivider = dirty)
-        if (dirty) {
-            Column(Modifier.padding(12.dp)) {
-                PrimaryButton("Salvar VPN") {
-                    update {
-                        it.copy(
-                            vpn = it.vpn.copy(
-                                hostIp = host,
-                                hostPort = port.toIntOrNull()?.coerceIn(1, 65535) ?: 22,
-                                publicHealthUrl = url,
-                            ),
-                        )
-                    }
-                }
-            }
-        }
+        }, showDivider = false)
     }
 }
-
-@Composable
-private fun Divider() =
-    HorizontalDivider(Modifier.padding(start = 16.dp), thickness = 0.5.dp, color = Bloqueio.colors.separator)

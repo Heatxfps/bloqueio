@@ -2,6 +2,7 @@ package dev.foco.bloqueio.admin
 
 import android.app.admin.DevicePolicyManager
 import android.content.Context
+import android.os.Bundle
 import android.os.UserManager
 import android.util.Log
 import dev.foco.bloqueio.data.AppConfig
@@ -45,6 +46,18 @@ class PolicyManager(private val context: Context) {
     }
 
     /**
+     * Política gerenciada do Tailscale (MDM): `ForceEnabled` esconde/desabilita o botão de
+     * desconectar no app do Tailscale.
+     */
+    fun setTailscaleForceEnabled(enabled: Boolean, vpnPackage: String) {
+        if (!isDeviceOwner) return
+        val current = guard { dpm.getApplicationRestrictions(admin, vpnPackage) } ?: Bundle()
+        if (current.getBoolean(KEY_FORCE_ENABLED, false) == enabled && current.containsKey(KEY_FORCE_ENABLED)) return
+        val next = Bundle(current).apply { putBoolean(KEY_FORCE_ENABLED, enabled) }
+        guard { dpm.setApplicationRestrictions(admin, vpnPackage, next) }
+    }
+
+    /**
      * Sincroniza a suspensão: suspende [desired] e libera o que o app suspendeu antes e não
      * está mais na lista. Nunca mexe em apps suspensos por outra origem.
      */
@@ -69,6 +82,7 @@ class PolicyManager(private val context: Context) {
         if (!isDeviceOwner) return
         syncSuspended(emptySet())
         guard { dpm.setAlwaysOnVpnPackage(admin, null, false) }
+        guard { dpm.setApplicationRestrictions(admin, "com.tailscale.ipn", Bundle()) }
         listOf(
             UserManager.DISALLOW_FACTORY_RESET, UserManager.DISALLOW_SAFE_BOOT,
             UserManager.DISALLOW_CONFIG_VPN, UserManager.DISALLOW_CONFIG_DATE_TIME,
@@ -95,5 +109,6 @@ class PolicyManager(private val context: Context) {
     private companion object {
         const val KEY_SUSPENDED = "suspended"
         const val KEY_PROTECTED = "protected"
+        const val KEY_FORCE_ENABLED = "ForceEnabled"
     }
 }

@@ -9,8 +9,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
-import java.net.InetSocketAddress
-import java.net.Socket
 import java.net.URL
 
 enum class VpnState(val label: String) {
@@ -19,13 +17,15 @@ enum class VpnState(val label: String) {
     NOT_INSTALLED("Tailscale não instalado"),
     CONNECTING("Conectando"),
     PROTECTED("Protegida"),
-    FAILOVER("Host fora — sem VPN"),
+    OFFLINE("Sem internet"),
+    FAILOVER("Servidor fora — sem VPN"),
     PROBING("Testando retorno"),
 }
 
 /**
- * Trava a VPN no Tailscale e faz failover quando o host cai.
- * Máquina de estados descrita em docs/funcionalidades/01-vpn.md.
+ * Trava o Tailscale ligado (ForceEnabled + Always-on) e faz failover quando o servidor cai.
+ * Não precisa de configuração: "servidor caiu" = rede física validada pelo Android, mas
+ * nenhuma internet passando pela VPN. Ver docs/funcionalidades/01-vpn.md.
  */
 class HostMonitor(
     private val policy: PolicyManager,
@@ -41,12 +41,16 @@ class HostMonitor(
         val pkg = cfg.tailscalePackage
         when {
             !cfg.enabled -> {
-                policy.setVpnLock(false, pkg)
+                lock(false, pkg)
                 _state.value = VpnState.DISABLED
                 return
             }
             !tailscale.isInstalled(pkg) -> {
                 _state.value = VpnState.NOT_INSTALLED
+                return
+            }
+            !policy.isDeviceOwner -> {
+                _state.value = VpnState.NO_OWNER
                 return
             }
         }
@@ -56,23 +60,20 @@ class HostMonitor(
             return
         }
 
-        policy.setVpnLock(true, pkg)
+        lock(true, pkg)
         val vpnUp = tailscale.isVpnActive()
         if (!vpnUp) tailscale.connect(pkg) // auto-cura
 
-        if (cfg.hostIp.isBlank()) {
-            _state.value = when {
-                !policy.isDeviceOwner -> VpnState.NO_OWNER
-                vpnUp -> VpnState.PROTECTED
-                else -> VpnState.CONNECTING
-            }
+        if (!tailscale.isUnderlyingNetworkValidated()) {
+            // Sem sinal/Wi‑Fi: não é culpa do servidor, não desconecta.
+            fails = 0
+            _state.value = VpnState.OFFLINE
             return
         }
 
-        val healthy = vpnUp && (tcpProbe(cfg.hostIp, cfg.hostPort) || internetProbe())
-        if (healthy) {
+        if (vpnUp && internetProbe()) {
             fails = 0
-            _state.value = if (policy.isDeviceOwner) VpnState.PROTECTED else VpnState.NO_OWNER
+            _state.value = VpnState.PROTECTED
         } else {
             fails++
             if (fails >= cfg.failThreshold) enterFailover(pkg) else _state.value = VpnState.CONNECTING
@@ -80,7 +81,7 @@ class HostMonitor(
     }
 
     private suspend fun enterFailover(pkg: String) {
-        policy.setVpnLock(false, pkg)
+        lock(false, pkg)
         delay(1_000)
         tailscale.disconnect(pkg)
         fails = 0
@@ -90,45 +91,37 @@ class HostMonitor(
 
     private suspend fun tryRecover(cfg: VpnConfig) {
         val pkg = cfg.tailscalePackage
-        if (cfg.publicHealthUrl.isNotBlank()) {
-            if (httpProbe(cfg.publicHealthUrl)) restore(pkg)
-            return
-        }
         val now = System.currentTimeMillis()
         if (now - lastProbeAt < cfg.retryMinutes * 60_000L) return
         lastProbeAt = now
+        if (!tailscale.isUnderlyingNetworkValidated()) return
         _state.value = VpnState.PROBING
         tailscale.connect(pkg)
         delay(20_000)
-        if (tailscale.isVpnActive() && tcpProbe(cfg.hostIp, cfg.hostPort)) {
-            restore(pkg)
+        if (tailscale.isVpnActive() && internetProbe()) {
+            lock(true, pkg)
+            fails = 0
+            _state.value = VpnState.PROTECTED
         } else {
             tailscale.disconnect(pkg)
             _state.value = VpnState.FAILOVER
         }
     }
 
-    private fun restore(pkg: String) {
-        tailscale.connect(pkg)
-        policy.setVpnLock(true, pkg)
-        fails = 0
-        _state.value = VpnState.CONNECTING
+    /** ForceEnabled (botão desconectar desabilitado) + Always-on com lockdown. */
+    private fun lock(on: Boolean, pkg: String) {
+        policy.setTailscaleForceEnabled(on, pkg)
+        policy.setVpnLock(on, pkg)
     }
 
-    private suspend fun tcpProbe(host: String, port: Int): Boolean = withContext(Dispatchers.IO) {
-        runCatching { Socket().use { it.connect(InetSocketAddress(host, port), 3_000) } }.isSuccess
-    }
-
-    private suspend fun internetProbe() = httpProbe("https://connectivitycheck.gstatic.com/generate_204")
-
-    private suspend fun httpProbe(url: String): Boolean = withContext(Dispatchers.IO) {
+    private suspend fun internetProbe(): Boolean = withContext(Dispatchers.IO) {
         runCatching {
-            val c = URL(url).openConnection() as HttpURLConnection
-            c.connectTimeout = 4_000
-            c.readTimeout = 4_000
+            val c = URL("https://connectivitycheck.gstatic.com/generate_204").openConnection() as HttpURLConnection
+            c.connectTimeout = 5_000
+            c.readTimeout = 5_000
             c.instanceFollowRedirects = false
             try {
-                c.responseCode in 200..399
+                c.responseCode == 204
             } finally {
                 c.disconnect()
             }

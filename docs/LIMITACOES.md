@@ -10,6 +10,7 @@ Transparência sobre o que o Android permite e o que não permite.
 | Bloqueio parcial | Depende dos IDs de tela de cada app (Instagram, YouTube…). Uma atualização do app pode quebrar a detecção | IDs centralizados em `DistractionDetector` + detecção por texto como reserva |
 | Now Bar | Promoção para a Now Bar exige Android 16 / One UI 8 e a decisão final é do sistema | Notificação contínua comum como reserva |
 | Tailscale | Controle por intents (`CONNECT_VPN`/`DISCONNECT_VPN`) depende da versão do Tailscale | Monitor tenta de novo e avisa na notificação |
-| Failover | Com o Tailscale desligado não dá para alcançar o IP 100.x; o retorno é testado religando o Tailscale periodicamente (ou por uma URL pública opcional) | Intervalo configurável |
+| Failover | Com o Tailscale desligado não dá para saber se o servidor voltou; o retorno é testado religando o Tailscale periodicamente | Intervalo configurável pelo admin |
+| ForceEnabled | Política gerenciada lida pelo próprio app do Tailscale; versões antigas podem ignorá-la | Always-on com lockdown continua valendo |
 | Horário | Alterar data/hora burlaria o recolher | Restrição `DISALLOW_CONFIG_DATE_TIME` ativa por padrão |
 | Senha esquecida | Sem senha **e** sem código de recuperação não há como abrir o Admin | Guarde o código; última saída é reset de fábrica via recovery (bloqueado no menu de Configurações) |

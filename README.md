@@ -8,7 +8,7 @@ App Android de **autocontrole digital** com proteção real: trava a VPN no Tail
 
 | # | Funcionalidade | Como funciona | Doc |
 |---|---|---|---|
-| 1 | VPN travada no Tailscale + failover | Device Owner: *Always-on VPN* com lockdown + `DISALLOW_CONFIG_VPN`. Monitor de saúde do host desconecta o Tailscale se o servidor cair e reconecta quando ele volta | [VPN](docs/funcionalidades/01-vpn.md) |
+| 1 | VPN travada no Tailscale + failover | Device Owner: política `ForceEnabled` do Tailscale (botão desconectar desabilitado) + *Always-on VPN* com lockdown + `DISALLOW_CONFIG_VPN`. Sem configuração: se a rede tem internet mas nada passa pela VPN, o Tailscale é desligado e religado quando o servidor volta | [VPN](docs/funcionalidades/01-vpn.md) |
 | 2 | Cotas de distração (20 min redes / 20 min jogos) | Contagem em tempo real pelo serviço de acessibilidade. Esgotou: jogos bloqueados; redes sociais em bloqueio **parcial** (Reels, Shorts, Explorar…) | [Cotas](docs/funcionalidades/02-cotas.md) |
 | 3 | Toque de recolher (ex.: 20:00–04:00) | Só apps essenciais funcionam; o resto é suspenso | [Horário](docs/funcionalidades/03-horario.md) |
 | 4 | Pasta segura / ambiente limpo | Apps abertos pela pasta rodam com Opções do desenvolvedor, depuração USB e Wi‑Fi desligadas; ao sair, tudo volta | [Pasta segura](docs/funcionalidades/04-pasta-segura.md) |
