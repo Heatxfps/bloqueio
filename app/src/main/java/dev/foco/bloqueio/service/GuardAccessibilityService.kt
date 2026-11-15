@@ -69,12 +69,16 @@ class GuardAccessibilityService : AccessibilityService() {
             is Verdict.Partial -> {
                 if (!DistractionDetector.supports(pkg) || now - lastScanAt < 350) return
                 lastScanAt = now
-                val area = DistractionDetector.detect(pkg, rootInActiveWindow) ?: return
+                val root = rootInActiveWindow
+                val found = DistractionDetector.detect(pkg, root) ?: return
                 if (now - lastActionAt > 800) {
                     lastActionAt = now
-                    performGlobalAction(GLOBAL_ACTION_BACK)
-                    Toast.makeText(this, "Bloqueado agora: $area. ${verdict.why}", Toast.LENGTH_SHORT).show()
-                    NowBarNotifier.notifyPartialBlock(this, area, verdict.why)
+                    // Aba de consumo → leva para uma aba permitida (o app continua aberto).
+                    // Visualizador aberto de outra tela → "voltar" retorna a essa tela.
+                    val moved = found.viaTab && DistractionDetector.escapeTo(pkg, root)
+                    if (!moved) performGlobalAction(GLOBAL_ACTION_BACK)
+                    Toast.makeText(this, "${found.area} bloqueado. ${verdict.why}", Toast.LENGTH_SHORT).show()
+                    NowBarNotifier.notifyPartialBlock(this, found.area, verdict.why)
                 }
             }
         }
