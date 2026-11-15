@@ -81,16 +81,17 @@ object DistractionDetector {
         val screen = Rect().also(root::getBoundsInScreen)
         if (screen.height() <= 0) return null
 
+        // Aba primeiro: dá para sair tocando numa aba permitida, sem "voltar".
+        val tab = findNavItem(root, screen, spec.consumptionTabs, selectedOnly = true)
+        if (tab != null) {
+            return Detection(spec.label, viaTab = true, reason = "aba selecionada \"${labelOf(tab)}\"").also(::log)
+        }
         for (id in spec.viewerIds) {
             val full = root.findAccessibilityNodeInfosByViewId("$pkg:id/$id").firstOrNull { n ->
                 val r = Rect().also(n::getBoundsInScreen)
                 n.isVisibleToUser && r.width() >= screen.width() * 0.9f && r.height() >= screen.height() * 0.7f
             }
             if (full != null) return Detection(spec.label, viaTab = false, reason = "visualizador $id").also(::log)
-        }
-        val tab = findNavItem(root, screen, spec.consumptionTabs, selectedOnly = true)
-        if (tab != null) {
-            return Detection(spec.label, viaTab = true, reason = "aba selecionada \"${labelOf(tab)}\"").also(::log)
         }
         return null
     }

@@ -25,6 +25,8 @@ class GuardAccessibilityService : AccessibilityService() {
     private var allowedAt = 0L
     private var lastActionAt = 0L
     private var lastScanAt = 0L
+    private var lastBackAt = 0L
+    private var lastBackPkg: String? = null
 
     override fun onServiceConnected() {
         catalog = AppCatalog(this)
@@ -75,8 +77,14 @@ class GuardAccessibilityService : AccessibilityService() {
                     lastActionAt = now
                     // Aba de consumo → leva para uma aba permitida (o app continua aberto).
                     // Visualizador aberto de outra tela → "voltar" retorna a essa tela.
-                    val moved = found.viaTab && DistractionDetector.escapeTo(pkg, root)
-                    if (!moved) performGlobalAction(GLOBAL_ACTION_BACK)
+                    // Se um "voltar" recente não tirou a pessoa do player, tenta a aba permitida.
+                    val backFailed = pkg == lastBackPkg && now - lastBackAt < 3_000
+                    val moved = (found.viaTab || backFailed) && DistractionDetector.escapeTo(pkg, root)
+                    if (!moved) {
+                        performGlobalAction(GLOBAL_ACTION_BACK)
+                        lastBackAt = now
+                        lastBackPkg = pkg
+                    }
                     Toast.makeText(this, "${found.area} bloqueado. ${verdict.why}", Toast.LENGTH_SHORT).show()
                     NowBarNotifier.notifyPartialBlock(this, found.area, verdict.why)
                 }
