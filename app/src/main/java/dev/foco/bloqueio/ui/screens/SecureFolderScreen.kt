@@ -1,6 +1,6 @@
 package dev.foco.bloqueio.ui.screens
 
-import android.widget.Toast
+import dev.foco.bloqueio.ui.components.UiMessages
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -64,7 +64,7 @@ fun SecureFolderScreen() {
 
     fun open(pkg: String) {
         if (!CleanEnvironment.launch(context, pkg)) {
-            Toast.makeText(context, "Este app não está instalado.", Toast.LENGTH_SHORT).show()
+            UiMessages.error("Este app não está instalado. Instale-o de novo ou tire-o da pasta.")
         }
     }
 

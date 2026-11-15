@@ -7,7 +7,10 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.platform.LocalContext
+import android.provider.Settings
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -113,10 +116,21 @@ object Bloqueio {
     val colors: BloqueioColors @Composable get() = LocalColors.current
 }
 
+/** "Texto de alto contraste" do Android: reforça texto secundário e divisórias (HIG › Color). */
+private fun BloqueioColors.highContrast(dark: Boolean) = copy(
+    secondaryLabel = if (dark) Color(0xFFD1D1D6) else Color(0xFF3A3A3C),
+    separator = if (dark) Color(0xFF8E8E93) else Color(0xFF8E8E93),
+)
+
 @Composable
 fun BloqueioTheme(content: @Composable () -> Unit) {
     val dark = isSystemInDarkTheme()
-    val c = if (dark) DarkColors else LightColors
+    val context = LocalContext.current
+    val highContrast = remember {
+        Settings.Secure.getInt(context.contentResolver, "high_text_contrast_enabled", 0) == 1
+    }
+    val base = if (dark) DarkColors else LightColors
+    val c = if (highContrast) base.highContrast(dark) else base
     val scheme = if (dark) {
         darkColorScheme(primary = c.accent, background = c.background, surface = c.cell, onSurface = c.label)
     } else {

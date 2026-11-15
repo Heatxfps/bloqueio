@@ -6,11 +6,12 @@ import dev.foco.bloqueio.data.RuleType
 
 enum class Category { SOCIAL, GAME, NONE }
 
-enum class BlockReason(val message: String) {
-    RULE("Este app está na sua lista de bloqueio."),
-    SCHEDULE("Fora do horário. Só os apps essenciais funcionam agora."),
-    FOCUS("Você está em modo foco."),
-    GAME_QUOTA("Sua cota de jogos de hoje acabou."),
+/** Título e mensagem da tela de bloqueio para cada motivo (tom gentil: docs/DESIGN.md). */
+enum class BlockReason(val title: String, val message: String) {
+    RULE("App bloqueado", "Este app está na sua lista de bloqueio. Só o admin pode liberar."),
+    SCHEDULE("Hora de descansar", "No horário de descanso só os apps essenciais funcionam."),
+    FOCUS("Hora de focar", "Você está em modo foco."),
+    GAME_QUOTA("Cota de jogos acabou", "Você já usou todo o tempo de jogos de hoje."),
 }
 
 sealed interface Verdict {

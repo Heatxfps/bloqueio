@@ -1,6 +1,19 @@
 package dev.foco.bloqueio.ui.screens
 
-import android.widget.Toast
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerDefaults
+import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.ui.semantics.Role
+import dev.foco.bloqueio.ui.theme.Radius
+import dev.foco.bloqueio.ui.components.UiMessages
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -182,20 +195,14 @@ private fun AdminPanel(vault: PasswordVault) {
     val policy = remember { PolicyManager(context) }
     var changingPw by remember { mutableStateOf(false) }
     var confirmRemove by remember { mutableStateOf(false) }
+    var editingTime by remember { mutableStateOf<TimeField?>(null) }
 
     fun update(t: (AppConfig) -> AppConfig) = runGuarded(context) { RulesRepository.adminUpdate(t) }
 
     val left = ((until - now) / 1000).coerceAtLeast(0)
-    LargeTitleScaffold(
-        "Admin",
-        trailing = {
-            Text(
-                "%d:%02d".format(left / 60, left % 60),
-                style = BloqueioType.headline, color = Bloqueio.colors.successText,
-            )
-        },
-    ) {
-        PrimaryButton("Bloquear agora", color = Bloqueio.colors.grayFill) { AdminSession.lock() }
+    LargeTitleScaffold("Admin") {
+        // Estado da sessão com rótulo; "Bloquear" é secundário, não o botão principal da tela.
+        UnlockedChip("%d:%02d".format(left / 60, left % 60)) { AdminSession.lock() }
 
         // Cotas
         GroupedSection(header = "Cotas diárias") {
@@ -215,16 +222,15 @@ private fun AdminPanel(vault: PasswordVault) {
         val sch = config.schedule
         GroupedSection(header = "Horário de descanso", footer = "Só apps essenciais funcionam dentro da janela.") {
             SwitchCell("Ativado", sch.enabled, { v -> update { it.copy(schedule = it.schedule.copy(enabled = v)) } })
-            StepperCell("Início", ScheduleWindow.format(sch.startMinute), {
-                update { it.copy(schedule = it.schedule.copy(startMinute = (it.schedule.startMinute + 1410) % 1440)) }
-            }, {
-                update { it.copy(schedule = it.schedule.copy(startMinute = (it.schedule.startMinute + 30) % 1440)) }
-            })
-            StepperCell("Fim", ScheduleWindow.format(sch.endMinute), {
-                update { it.copy(schedule = it.schedule.copy(endMinute = (it.schedule.endMinute + 1410) % 1440)) }
-            }, {
-                update { it.copy(schedule = it.schedule.copy(endMinute = (it.schedule.endMinute + 30) % 1440)) }
-            }, showDivider = false)
+            // Seletor de horário em vez de −/+ de 30 min; só salva ao confirmar.
+            Cell(
+                "Início", value = ScheduleWindow.format(sch.startMinute), valueColor = Bloqueio.colors.accent,
+                onClick = { editingTime = TimeField.START },
+            )
+            Cell(
+                "Fim", value = ScheduleWindow.format(sch.endMinute), valueColor = Bloqueio.colors.accent,
+                showDivider = false, onClick = { editingTime = TimeField.END },
+            )
         }
 
         // Foco
@@ -241,11 +247,28 @@ private fun AdminPanel(vault: PasswordVault) {
 
         // Restrições
         val r = config.restrictions
-        GroupedSection(header = "Restrições do sistema", footer = "Exigem Device Owner.") {
-            SwitchCell("Bloquear reset de fábrica", r.blockFactoryReset, { v -> update { it.copy(restrictions = it.restrictions.copy(blockFactoryReset = v)) } })
-            SwitchCell("Bloquear modo seguro", r.blockSafeBoot, { v -> update { it.copy(restrictions = it.restrictions.copy(blockSafeBoot = v)) } })
-            SwitchCell("Bloquear config. de VPN", r.blockVpnConfig, { v -> update { it.copy(restrictions = it.restrictions.copy(blockVpnConfig = v)) } })
-            SwitchCell("Bloquear data e hora", r.blockDateTime, { v -> update { it.copy(restrictions = it.restrictions.copy(blockDateTime = v)) } }, showDivider = false)
+        GroupedSection(header = "Restrições do sistema", footer = "Valem enquanto a proteção do sistema estiver ativa.") {
+            SwitchCell(
+                "Bloquear reset de fábrica", r.blockFactoryReset,
+                { v -> update { it.copy(restrictions = it.restrictions.copy(blockFactoryReset = v)) } },
+                subtitle = "Ninguém apaga o celular pelas Configurações.",
+            )
+            SwitchCell(
+                "Bloquear modo seguro", r.blockSafeBoot,
+                { v -> update { it.copy(restrictions = it.restrictions.copy(blockSafeBoot = v)) } },
+                subtitle = "O modo seguro desligaria o Bloqueio ao reiniciar.",
+            )
+            SwitchCell(
+                "Bloquear configuração de VPN", r.blockVpnConfig,
+                { v -> update { it.copy(restrictions = it.restrictions.copy(blockVpnConfig = v)) } },
+                subtitle = "Impede adicionar ou trocar de VPN.",
+            )
+            SwitchCell(
+                "Bloquear data e hora", r.blockDateTime,
+                { v -> update { it.copy(restrictions = it.restrictions.copy(blockDateTime = v)) } },
+                subtitle = "Mudar o relógio burlaria o horário de descanso e as cotas.",
+                showDivider = false,
+            )
         }
 
         // Senha e proteção
@@ -253,12 +276,33 @@ private fun AdminPanel(vault: PasswordVault) {
             Cell("Trocar senha mestra", chevron = true, onClick = { changingPw = true })
             Cell(
                 "Remover proteção do dispositivo",
-                subtitle = if (policy.isDeviceOwner) "Libera a desinstalação do Bloqueio" else "O app não é Device Owner",
+                subtitle = if (policy.isDeviceOwner) "Libera a desinstalação do Bloqueio" else "A proteção do sistema não está ativa",
                 titleColor = Bloqueio.colors.danger,
                 showDivider = false,
                 onClick = if (policy.isDeviceOwner) ({ confirmRemove = true }) else null,
             )
         }
+    }
+
+    editingTime?.let { field ->
+        val current = if (field == TimeField.START) config.schedule.startMinute else config.schedule.endMinute
+        TimePickerAlert(
+            title = if (field == TimeField.START) "Início do descanso" else "Fim do descanso",
+            initialMinute = current,
+            onDismiss = { editingTime = null },
+            onConfirm = { minute ->
+                editingTime = null
+                update {
+                    it.copy(
+                        schedule = if (field == TimeField.START) {
+                            it.schedule.copy(startMinute = minute)
+                        } else {
+                            it.schedule.copy(endMinute = minute)
+                        },
+                    )
+                }
+            },
+        )
     }
 
     if (changingPw) {
@@ -282,7 +326,7 @@ private fun AdminPanel(vault: PasswordVault) {
                     when (res) {
                         PasswordVault.Result.Ok -> {
                             changingPw = false
-                            Toast.makeText(context, "Senha alterada", Toast.LENGTH_SHORT).show()
+                            UiMessages.info("Senha mestra alterada.")
                         }
                         PasswordVault.Result.Wrong -> msg = "Senha atual incorreta."
                         is PasswordVault.Result.LockedOut -> msg = "Aguarde ${res.seconds} s."
@@ -296,13 +340,13 @@ private fun AdminPanel(vault: PasswordVault) {
     if (confirmRemove) {
         IosAlert(
             "Remover proteção?",
-            "O Bloqueio deixa de ser Device Owner: VPN, suspensões e restrições são liberadas e o app pode ser desinstalado. Para voltar será preciso o ADB de novo.",
+            "A trava da VPN, os bloqueios e as restrições são liberados e o Bloqueio pode ser desinstalado. Para ativar de novo, será preciso configurar pelo PC.",
             onDismiss = { confirmRemove = false },
         ) {
             TextButtonIos("Remover", color = Bloqueio.colors.danger) {
                 policy.removeProtection()
                 confirmRemove = false
-                Toast.makeText(context, "Proteção removida", Toast.LENGTH_LONG).show()
+                UiMessages.info("Proteção do sistema removida. Agora o Bloqueio pode ser desinstalado.")
             }
             TextButtonIos("Cancelar", color = Bloqueio.colors.secondaryLabel) { confirmRemove = false }
         }
@@ -324,5 +368,56 @@ private fun VpnSection(config: AppConfig, update: ((AppConfig) -> AppConfig) -> 
         }, {
             update { it.copy(vpn = it.vpn.copy(retryMinutes = (it.vpn.retryMinutes + 1).coerceAtMost(60))) }
         }, showDivider = false)
+    }
+}
+
+private enum class TimeField { START, END }
+
+/** Chip "Desbloqueado · 12:31 restantes" com a ação Bloquear ao lado. */
+@Composable
+private fun UnlockedChip(timeLeft: String, onLock: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Radius.cell))
+            .background(Bloqueio.colors.cell)
+            .padding(start = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(10.dp).clip(CircleShape).background(Bloqueio.colors.success))
+        Spacer(Modifier.width(10.dp))
+        Text(
+            "Desbloqueado · $timeLeft restantes", style = BloqueioType.callout, color = Bloqueio.colors.label,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            "Bloquear", style = BloqueioType.headline, color = Bloqueio.colors.accent,
+            modifier = Modifier
+                .clickable(role = Role.Button, onClick = onLock)
+                .heightIn(min = 48.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimePickerAlert(title: String, initialMinute: Int, onDismiss: () -> Unit, onConfirm: (Int) -> Unit) {
+    val state = rememberTimePickerState(initialHour = initialMinute / 60, initialMinute = initialMinute % 60, is24Hour = true)
+    IosAlert(title = title, onDismiss = onDismiss, content = {
+        TimePicker(
+            state = state,
+            colors = TimePickerDefaults.colors(
+                clockDialColor = Bloqueio.colors.cellSecondary,
+                selectorColor = Bloqueio.colors.accentFill,
+                timeSelectorSelectedContainerColor = Bloqueio.colors.accentFill.copy(alpha = 0.18f),
+                timeSelectorUnselectedContainerColor = Bloqueio.colors.cellSecondary,
+                timeSelectorSelectedContentColor = Bloqueio.colors.label,
+                timeSelectorUnselectedContentColor = Bloqueio.colors.label,
+            ),
+        )
+    }) {
+        TextButtonIos("Salvar") { onConfirm(state.hour * 60 + state.minute) }
+        TextButtonIos("Cancelar", color = Bloqueio.colors.secondaryLabel, onClick = onDismiss)
     }
 }

@@ -110,7 +110,7 @@ fun HomeScreen() {
         GroupedSection(header = "Agora") {
             Cell(
                 title = "VPN Tailscale",
-                leading = { IconTile(Icons.Rounded.Shield, Bloqueio.colors.accent) },
+                leading = { IconTile(Icons.Rounded.Shield, Bloqueio.colors.success) /* estado, não ação: azul fica só para o que é clicável */ },
                 value = vpn.label,
                 valueColor = when (vpn) {
                     VpnState.PROTECTED -> Bloqueio.colors.successText

@@ -26,6 +26,8 @@ import java.time.ZoneId
 object NowBarNotifier {
     const val ID = 1
     private const val CHANNEL = "guard"
+    private const val CHANNEL_BLOCKS = "blocks"
+    private const val ID_BLOCK = 2
 
     private const val PINK = 0xFFFF2D55.toInt()
     private const val INDIGO = 0xFF5856D6.toInt()
@@ -37,7 +39,28 @@ object NowBarNotifier {
             enableVibration(false)
             setShowBadge(false)
         }
-        context.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        val blocks = NotificationChannel(CHANNEL_BLOCKS, "Bloqueios", NotificationManager.IMPORTANCE_LOW).apply {
+            description = "Registro do que foi bloqueado (ex.: Reels, Shorts)"
+            setShowBadge(false)
+        }
+        context.getSystemService(NotificationManager::class.java)
+            .createNotificationChannels(listOf(channel, blocks))
+    }
+
+    /**
+     * Registro do bloqueio parcial. Fica na gaveta (sem prazo), ao contrário do Toast
+     * que só confirma na hora (HIG › Accessibility › Cognitive).
+     */
+    fun notifyPartialBlock(context: Context, area: String, why: String) {
+        val n = Notification.Builder(context, CHANNEL_BLOCKS)
+            .setSmallIcon(R.drawable.ic_stat_guard)
+            .setContentTitle("Bloqueado: $area")
+            .setContentText(why)
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .setCategory(Notification.CATEGORY_STATUS)
+            .build()
+        runCatching { context.getSystemService(NotificationManager::class.java).notify(ID_BLOCK, n) }
     }
 
     fun update(context: Context, s: EnforceState, vpn: VpnState) {

@@ -10,6 +10,7 @@ import dev.foco.bloqueio.data.RulesRepository
 import dev.foco.bloqueio.enforce.DistractionDetector
 import dev.foco.bloqueio.enforce.Enforcer
 import dev.foco.bloqueio.enforce.Verdict
+import dev.foco.bloqueio.notify.NowBarNotifier
 import dev.foco.bloqueio.securefolder.CleanEnvironment
 import dev.foco.bloqueio.ui.BlockActivity
 
@@ -61,7 +62,7 @@ class GuardAccessibilityService : AccessibilityService() {
                 startActivity(
                     Intent(this, BlockActivity::class.java)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                        .putExtra(BlockActivity.EXTRA_MESSAGE, verdict.reason.message)
+                        .putExtra(BlockActivity.EXTRA_REASON, verdict.reason.name)
                         .putExtra(BlockActivity.EXTRA_PACKAGE, pkg),
                 )
             }
@@ -72,7 +73,8 @@ class GuardAccessibilityService : AccessibilityService() {
                 if (now - lastActionAt > 800) {
                     lastActionAt = now
                     performGlobalAction(GLOBAL_ACTION_BACK)
-                    Toast.makeText(this, "$area bloqueado. ${verdict.why}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Bloqueado agora: $area. ${verdict.why}", Toast.LENGTH_SHORT).show()
+                    NowBarNotifier.notifyPartialBlock(this, area, verdict.why)
                 }
             }
         }

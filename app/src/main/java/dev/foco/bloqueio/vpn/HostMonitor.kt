@@ -14,7 +14,7 @@ import java.net.URL
 
 enum class VpnState(val label: String) {
     DISABLED("Desativada"),
-    NO_OWNER("Sem Device Owner"),
+    NO_OWNER("Sem proteção do sistema"),
     NOT_INSTALLED("Tailscale não instalado"),
     CONNECTING("Conectando"),
     PROTECTED("Protegida"),

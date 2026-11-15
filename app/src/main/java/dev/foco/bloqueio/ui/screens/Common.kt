@@ -1,6 +1,6 @@
 package dev.foco.bloqueio.ui.screens
 
-import android.widget.Toast
+import dev.foco.bloqueio.ui.components.UiMessages
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
@@ -31,9 +31,9 @@ fun runGuarded(context: android.content.Context, action: () -> Unit) {
     try {
         action()
     } catch (_: AdminRequiredException) {
-        Toast.makeText(context, "Só o admin pode fazer isso. Desbloqueie na aba Admin.", Toast.LENGTH_LONG).show()
+        UiMessages.error("Só o admin pode fazer isso. Desbloqueie na aba Admin.")
     } catch (e: IllegalArgumentException) {
-        Toast.makeText(context, e.message ?: "Valor inválido", Toast.LENGTH_LONG).show()
+        UiMessages.error(e.message ?: "Valor inválido.")
     }
 }
 

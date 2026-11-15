@@ -2,6 +2,7 @@ package dev.foco.bloqueio.ui
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
@@ -46,6 +47,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.foco.bloqueio.security.PasswordVault
+import dev.foco.bloqueio.ui.components.MessageBanner
 import dev.foco.bloqueio.service.GuardService
 import dev.foco.bloqueio.ui.screens.AdminScreen
 import dev.foco.bloqueio.ui.screens.HomeScreen
@@ -96,8 +98,12 @@ private val tabs = listOf(
 @Composable
 private fun Tabs(vault: PasswordVault) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
+    // Voltar numa aba que não é a Início leva para a Início antes de sair do app.
+    BackHandler(enabled = selected != 0) { selected = 0 }
     Column(Modifier.fillMaxSize()) {
-        Box(Modifier.weight(1f).statusBarsPadding()) {
+        // Aviso fixo (sucesso/erro) logo abaixo da barra de status, acima da aba atual.
+        Box(Modifier.statusBarsPadding()) { MessageBanner() }
+        Box(Modifier.weight(1f)) {
             when (selected) {
                 0 -> HomeScreen()
                 1 -> RulesScreen()
