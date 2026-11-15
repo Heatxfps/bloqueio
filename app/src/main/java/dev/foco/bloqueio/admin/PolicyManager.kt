@@ -36,13 +36,17 @@ class PolicyManager(private val context: Context) {
         restriction(UserManager.DISALLOW_CONFIG_DATE_TIME, r.blockDateTime)
     }
 
-    /** Liga/desliga o Always-on VPN com lockdown no Tailscale. */
-    fun setVpnLock(enabled: Boolean, vpnPackage: String) {
+    /**
+     * Define o Always-on VPN. Definir um pacote também CONCEDE a permissão de VPN a ele e
+     * o sistema inicia a VPN sozinho — sem a janela de consentimento, que fica bloqueada por
+     * DISALLOW_CONFIG_VPN. Passar null derruba a VPN e revoga essa permissão.
+     */
+    fun setAlwaysOnVpn(vpnPackage: String?, lockdown: Boolean) {
         if (!isDeviceOwner) return
-        val current = guard { dpm.getAlwaysOnVpnPackage(admin) }
-        val target = if (enabled) vpnPackage else null
-        if (current == target) return
-        guard { dpm.setAlwaysOnVpnPackage(admin, target, enabled) }
+        val currentPkg = guard { dpm.getAlwaysOnVpnPackage(admin) }
+        val currentLockdown = guard { dpm.isAlwaysOnVpnLockdownEnabled(admin) } ?: false
+        if (currentPkg == vpnPackage && (vpnPackage == null || currentLockdown == lockdown)) return
+        guard { dpm.setAlwaysOnVpnPackage(admin, vpnPackage, vpnPackage != null && lockdown) }
     }
 
     /**

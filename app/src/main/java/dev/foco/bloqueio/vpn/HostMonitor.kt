@@ -1,5 +1,6 @@
 package dev.foco.bloqueio.vpn
 
+import android.util.Log
 import dev.foco.bloqueio.admin.PolicyManager
 import dev.foco.bloqueio.data.VpnConfig
 import kotlinx.coroutines.Dispatchers
@@ -25,7 +26,11 @@ enum class VpnState(val label: String) {
 /**
  * Trava o Tailscale ligado (ForceEnabled + Always-on) e faz failover quando o servidor cai.
  * Não precisa de configuração: "servidor caiu" = rede física validada pelo Android, mas
- * nenhuma internet passando pela VPN. Ver docs/funcionalidades/01-vpn.md.
+ * nenhuma internet passando pela VPN (inclusive DNS). Ver docs/funcionalidades/01-vpn.md.
+ *
+ * Ligar/desligar é sempre feito pelo Always-on (Device Owner), nunca pelos intents do
+ * Tailscale: tirar o Always-on revoga a permissão de VPN, e a janela para concedê-la de
+ * novo é bloqueada por DISALLOW_CONFIG_VPN. Repor o Always-on concede a permissão.
  */
 class HostMonitor(
     private val policy: PolicyManager,
@@ -41,18 +46,13 @@ class HostMonitor(
         val pkg = cfg.tailscalePackage
         when {
             !cfg.enabled -> {
-                lock(false, pkg)
-                _state.value = VpnState.DISABLED
+                policy.setTailscaleForceEnabled(false, pkg)
+                policy.setAlwaysOnVpn(null, false)
+                set(VpnState.DISABLED)
                 return
             }
-            !tailscale.isInstalled(pkg) -> {
-                _state.value = VpnState.NOT_INSTALLED
-                return
-            }
-            !policy.isDeviceOwner -> {
-                _state.value = VpnState.NO_OWNER
-                return
-            }
+            !tailscale.isInstalled(pkg) -> return set(VpnState.NOT_INSTALLED)
+            !policy.isDeviceOwner -> return set(VpnState.NO_OWNER)
         }
 
         if (_state.value == VpnState.FAILOVER) {
@@ -60,33 +60,34 @@ class HostMonitor(
             return
         }
 
-        lock(true, pkg)
+        lockOn(pkg)
         val vpnUp = tailscale.isVpnActive()
-        if (!vpnUp) tailscale.connect(pkg) // auto-cura
 
         if (!tailscale.isUnderlyingNetworkValidated()) {
             // Sem sinal/Wi‑Fi: não é culpa do servidor, não desconecta.
             fails = 0
-            _state.value = VpnState.OFFLINE
+            set(VpnState.OFFLINE)
             return
         }
 
         if (vpnUp && internetProbe()) {
             fails = 0
-            _state.value = VpnState.PROTECTED
+            set(VpnState.PROTECTED)
         } else {
             fails++
-            if (fails >= cfg.failThreshold) enterFailover(pkg) else _state.value = VpnState.CONNECTING
+            Log.w(TAG, "Sem internet pela VPN (vpnUp=$vpnUp) falha $fails/${cfg.failThreshold}")
+            if (fails >= cfg.failThreshold) enterFailover(pkg) else set(VpnState.CONNECTING)
         }
     }
 
-    private suspend fun enterFailover(pkg: String) {
-        lock(false, pkg)
-        delay(1_000)
+    private fun enterFailover(pkg: String) {
+        Log.w(TAG, "Failover: servidor fora, desligando o Tailscale")
+        policy.setTailscaleForceEnabled(false, pkg)
+        policy.setAlwaysOnVpn(null, false) // derruba a VPN
         tailscale.disconnect(pkg)
         fails = 0
         lastProbeAt = System.currentTimeMillis()
-        _state.value = VpnState.FAILOVER
+        set(VpnState.FAILOVER)
     }
 
     private suspend fun tryRecover(cfg: VpnConfig) {
@@ -95,36 +96,63 @@ class HostMonitor(
         if (now - lastProbeAt < cfg.retryMinutes * 60_000L) return
         lastProbeAt = now
         if (!tailscale.isUnderlyingNetworkValidated()) return
-        _state.value = VpnState.PROBING
-        tailscale.connect(pkg)
+        set(VpnState.PROBING)
+        // Sem lockdown durante o teste: se o servidor ainda estiver fora, o resto não trava.
+        policy.setAlwaysOnVpn(pkg, lockdown = false)
         delay(20_000)
         if (tailscale.isVpnActive() && internetProbe()) {
-            lock(true, pkg)
+            Log.i(TAG, "Servidor voltou: travando a VPN de novo")
+            lockOn(pkg)
             fails = 0
-            _state.value = VpnState.PROTECTED
+            set(VpnState.PROTECTED)
         } else {
-            tailscale.disconnect(pkg)
-            _state.value = VpnState.FAILOVER
+            Log.i(TAG, "Servidor ainda fora")
+            policy.setAlwaysOnVpn(null, false)
+            set(VpnState.FAILOVER)
         }
     }
 
     /** ForceEnabled (botão desconectar desabilitado) + Always-on com lockdown. */
-    private fun lock(on: Boolean, pkg: String) {
-        policy.setTailscaleForceEnabled(on, pkg)
-        policy.setVpnLock(on, pkg)
+    private fun lockOn(pkg: String) {
+        policy.setTailscaleForceEnabled(true, pkg)
+        policy.setAlwaysOnVpn(pkg, lockdown = true)
     }
 
-    private suspend fun internetProbe(): Boolean = withContext(Dispatchers.IO) {
+    private fun set(s: VpnState) {
+        if (_state.value != s) Log.i(TAG, "Estado: ${_state.value} -> $s")
+        _state.value = s
+    }
+
+    /** Duas tentativas, dois destinos: um soluço da rede não conta como falha. */
+    private suspend fun internetProbe(): Boolean {
+        repeat(2) { attempt ->
+            for (url in PROBE_URLS) if (probe(url)) return true
+            if (attempt == 0) delay(3_000)
+        }
+        return false
+    }
+
+    private suspend fun probe(url: String): Boolean = withContext(Dispatchers.IO) {
         runCatching {
-            val c = URL("https://connectivitycheck.gstatic.com/generate_204").openConnection() as HttpURLConnection
-            c.connectTimeout = 5_000
-            c.readTimeout = 5_000
+            val c = URL(url).openConnection() as HttpURLConnection
+            c.connectTimeout = 6_000
+            c.readTimeout = 6_000
             c.instanceFollowRedirects = false
+            c.useCaches = false
             try {
-                c.responseCode == 204
+                c.responseCode in 200..399
             } finally {
                 c.disconnect()
             }
-        }.getOrDefault(false)
+        }.onFailure { Log.d(TAG, "Probe $url falhou: ${it.javaClass.simpleName} ${it.message}") }
+            .getOrDefault(false)
+    }
+
+    private companion object {
+        const val TAG = "HostMonitor"
+        val PROBE_URLS = listOf(
+            "https://connectivitycheck.gstatic.com/generate_204",
+            "https://www.cloudflare.com/cdn-cgi/trace",
+        )
     }
 }

@@ -44,7 +44,7 @@ data class VpnConfig(
     val enabled: Boolean = true,
     val tailscalePackage: String = "com.tailscale.ipn",
     /** Falhas seguidas (sem internet pela VPN com a rede física ok) antes de desconectar. */
-    val failThreshold: Int = 3,
+    val failThreshold: Int = 4,
     val retryMinutes: Int = 5,
 )
 
