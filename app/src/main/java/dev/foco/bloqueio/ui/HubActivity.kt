@@ -256,7 +256,6 @@ private fun CountdownRing(fraction: Float) {
     }
 }
 
-@Composable
 private fun launchApp(context: android.content.Context, pkg: String) {
     context.packageManager.getLaunchIntentForPackage(pkg)?.let {
         context.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
