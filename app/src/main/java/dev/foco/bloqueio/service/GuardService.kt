@@ -159,9 +159,9 @@ class GuardService : Service() {
     /** Liga o Hub como tela inicial no começo do descanso e devolve o launcher no fim. */
     private fun syncHub() {
         val want = currentState().inSchedule && policy.isDeviceOwner
-        if (want == policy.isHubActive) return
-        policy.setHubAsHome(want)
-        if (want) {
+        val wasActive = policy.isHubActive
+        policy.setHubAsHome(want) // idempotente; conserta o estado real (ex.: depois de atualizar o app)
+        if (want && !wasActive) {
             runCatching {
                 startActivity(Intent(this, HubActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }

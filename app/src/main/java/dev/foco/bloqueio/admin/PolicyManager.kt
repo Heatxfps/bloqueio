@@ -85,7 +85,21 @@ class PolicyManager(private val context: Context) {
         prefs.edit().putStringSet(KEY_SUSPENDED, desired - failed).apply()
     }
 
-    val isHubActive: Boolean get() = prefs.getBoolean(KEY_HUB, false)
+    /**
+     * Estado REAL (não um registro próprio): o Hub está ativo se o alias está ligado e o botão
+     * Início resolve para ele. Uma atualização do app apaga a preferência de launcher, e o
+     * próximo ciclo do serviço a reaplica.
+     */
+    val isHubActive: Boolean get() = isHubAliasOn() && homeIsHub()
+
+    private fun isHubAliasOn() = context.packageManager.getComponentEnabledSetting(ComponentName(context, HUB_ALIAS)) ==
+        PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+
+    private fun homeIsHub(): Boolean {
+        val home = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+        return context.packageManager.resolveActivity(home, PackageManager.MATCH_DEFAULT_ONLY)
+            ?.activityInfo?.packageName == context.packageName
+    }
 
     /**
      * Hub do descanso como tela inicial obrigatória: liga o alias HOME e, como Device Owner,
@@ -93,7 +107,8 @@ class PolicyManager(private val context: Context) {
      * (Não usa lock task: nele o painel de controles rápidos fica desativado.)
      */
     fun setHubAsHome(enabled: Boolean) {
-        if (enabled == isHubActive) return
+        if (enabled && isHubActive) return
+        if (!enabled && !isHubAliasOn() && !homeIsHub()) return
         val alias = ComponentName(context, HUB_ALIAS)
         context.packageManager.setComponentEnabledSetting(
             alias,
@@ -111,7 +126,6 @@ class PolicyManager(private val context: Context) {
                 guard { dpm.clearPackagePersistentPreferredActivities(admin, context.packageName) }
             }
         }
-        prefs.edit().putBoolean(KEY_HUB, enabled).apply()
     }
 
     /** Remove o Device Owner (somente pelo Admin). Libera tudo antes. */
