@@ -97,7 +97,6 @@ class HostMonitor(
         lastProbeAt = now
         if (!tailscale.isUnderlyingNetworkValidated()) return
         set(VpnState.PROBING)
-        // Sem lockdown durante o teste: se o servidor ainda estiver fora, o resto não trava.
         policy.setAlwaysOnVpn(pkg, lockdown = false)
         delay(20_000)
         if (tailscale.isVpnActive() && internetProbe()) {
@@ -112,10 +111,14 @@ class HostMonitor(
         }
     }
 
-    /** ForceEnabled (botão desconectar desabilitado) + Always-on com lockdown. */
+    /**
+     * ForceEnabled (botão desconectar desabilitado) + Always-on SEM lockdown.
+     * O lockdown quebra o DNS do aparelho inteiro com o Tailscale (testado no S25 Ultra /
+     * Android 17) e iria contra o failover; trocar de VPN já é impedido por DISALLOW_CONFIG_VPN.
+     */
     private fun lockOn(pkg: String) {
         policy.setTailscaleForceEnabled(true, pkg)
-        policy.setAlwaysOnVpn(pkg, lockdown = true)
+        policy.setAlwaysOnVpn(pkg, lockdown = false)
     }
 
     private fun set(s: VpnState) {

@@ -6,7 +6,7 @@ Ninguém consegue trocar ou desligar a VPN, e o único app permitido é o Tailsc
 ## Como funciona
 1. **Trava** (Device Owner):
    - Política gerenciada do Tailscale `ForceEnabled = true` via `setApplicationRestrictions` → o botão **Desconectar** do Tailscale fica desabilitado.
-   - `setAlwaysOnVpnPackage(admin, "com.tailscale.ipn", lockdown = true)`.
+   - `setAlwaysOnVpnPackage(admin, "com.tailscale.ipn", lockdown = false)`: o sistema religa o Tailscale sozinho. **Sem lockdown** de propósito: com lockdown o DNS do aparelho inteiro parou de funcionar junto com o Tailscale (testado no S25 Ultra / Android 17), e ele cortaria a internet justamente no failover.
    - Restrição `DISALLOW_CONFIG_VPN` (não dá para adicionar/trocar VPN em Configurações).
 2. **Detecção de queda sem configuração** (`HostMonitor`, a cada 30 s no `GuardService`):
    - O Android valida a rede física (Wi‑Fi/dados) por fora da VPN (`NET_CAPABILITY_VALIDATED`).
@@ -14,8 +14,8 @@ Ninguém consegue trocar ou desligar a VPN, e o único app permitido é o Tailsc
    - Sem rede física validada (sem sinal) → estado `Sem internet`, nada é desconectado.
    - Cada verificação faz 2 tentativas em 2 destinos (gstatic e Cloudflare), para um soluço da rede não contar.
    - 4 verificações seguidas falhando (~2 min) → **failover**: `ForceEnabled = false` e o always-on é removido, o que derruba a VPN.
-3. **Retorno**: a cada `retryMinutes` (padrão 5) o always-on é reposto **sem lockdown**, espera 20 s e testa a internet pela VPN. Funcionou → lockdown + `ForceEnabled` de volta; senão remove o always-on de novo.
-4. **Auto-cura**: fora do failover o always-on com lockdown é reaplicado a cada verificação, e o sistema religa o Tailscale sozinho.
+3. **Retorno**: a cada `retryMinutes` (padrão 5) o always-on é reposto, espera 20 s e testa a internet pela VPN. Funcionou → `ForceEnabled` de volta; senão remove o always-on de novo.
+4. **Auto-cura**: fora do failover o always-on é reaplicado a cada verificação, e o sistema religa o Tailscale sozinho.
 
 > **Por que não usar os intents `CONNECT_VPN`/`DISCONNECT_VPN` do Tailscale?** Remover o always-on revoga a permissão de VPN do Tailscale, e a janela do Android para concedê-la de novo é bloqueada pela restrição `DISALLOW_CONFIG_VPN` (o Tailscale mostra erro ao tentar ligar). Repor o always-on pelo Device Owner concede a permissão sem janela.
 
