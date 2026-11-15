@@ -54,7 +54,7 @@ class GuardService : Service() {
         super.onCreate()
         policy = PolicyManager(this)
         catalog = AppCatalog(this)
-        monitor = HostMonitor(policy, TailscaleController(this)) { CleanEnvironment.vpnPaused(this) }
+        monitor = HostMonitor(policy, TailscaleController(this))
         startForeground(
             NowBarNotifier.ID,
             NowBarNotifier.build(this, currentState(), monitor.state.value),

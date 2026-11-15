@@ -9,9 +9,7 @@ import android.content.pm.PackageManager
 import android.os.Process
 import android.provider.Settings
 import android.util.Log
-import dev.foco.bloqueio.admin.PolicyManager
 import dev.foco.bloqueio.data.RuleType
-import dev.foco.bloqueio.vpn.TailscaleController
 import dev.foco.bloqueio.data.RulesRepository
 
 /**
@@ -40,7 +38,6 @@ object CleanEnvironment {
     private const val KEY_ACTIVE = "active"
     private const val KEY_A11Y_OFF = "a11y_off"
     private const val KEY_PKG = "pkg"
-    private const val KEY_VPN_OFF = "vpn_off"
 
     fun canWriteSecureSettings(context: Context) =
         context.checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") ==
@@ -53,9 +50,6 @@ object CleanEnvironment {
     }
 
     fun isActive(context: Context) = prefs(context).getBoolean(KEY_ACTIVE, false)
-
-    /** O ambiente limpo pausou o Tailscale (o monitor de VPN não deve religar). */
-    fun vpnPaused(context: Context) = prefs(context).getBoolean(KEY_VPN_OFF, false)
 
     /** O ambiente limpo desligou a acessibilidade do Bloqueio (a auto-cura deve esperar). */
     fun accessibilityPaused(context: Context) = prefs(context).getBoolean(KEY_A11Y_OFF, false)
@@ -75,14 +69,10 @@ object CleanEnvironment {
         val edit = prefs(context).edit()
         KEYS.forEach { key -> edit.putInt(key, Settings.Global.getInt(cr, key, 0)) }
         val pauseA11y = hasUsageAccess(context) && !isDistraction(pkg)
-        // VPN ativa é tratada como risco por alguns bancos: pausa o Tailscale só durante o app.
-        val pauseVpn = pauseA11y && RulesRepository.config.value.vpn.enabled
-        edit.putBoolean(KEY_ACTIVE, true).putBoolean(KEY_A11Y_OFF, pauseA11y)
-            .putBoolean(KEY_VPN_OFF, pauseVpn).putString(KEY_PKG, pkg).commit()
+        edit.putBoolean(KEY_ACTIVE, true).putBoolean(KEY_A11Y_OFF, pauseA11y).putString(KEY_PKG, pkg).commit()
         KEYS.forEach { key -> runCatching { Settings.Global.putInt(cr, key, 0) } }
         if (pauseA11y) setOwnAccessibility(context, enabled = false)
-        if (pauseVpn) setVpn(context, on = false)
-        Log.i(TAG, "entrou ($pkg) acessibilidade desligada=$pauseA11y vpn pausada=$pauseVpn")
+        Log.i(TAG, "entrou ($pkg) acessibilidade desligada=$pauseA11y")
     }
 
     @Synchronized
@@ -93,8 +83,7 @@ object CleanEnvironment {
         // Liga a flag de desenvolvedor antes do ADB (o sistema exige essa ordem).
         KEYS.forEach { key -> runCatching { Settings.Global.putInt(cr, key, p.getInt(key, 0)) } }
         if (p.getBoolean(KEY_A11Y_OFF, false)) setOwnAccessibility(context, enabled = true)
-        if (p.getBoolean(KEY_VPN_OFF, false)) setVpn(context, on = true)
-        p.edit().putBoolean(KEY_ACTIVE, false).putBoolean(KEY_A11Y_OFF, false).putBoolean(KEY_VPN_OFF, false).apply()
+        p.edit().putBoolean(KEY_ACTIVE, false).putBoolean(KEY_A11Y_OFF, false).apply()
         Log.i(TAG, "saiu: configurações restauradas")
     }
 
@@ -136,15 +125,6 @@ object CleanEnvironment {
             Settings.Secure.putString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, next.joinToString(":"))
             if (enabled) Settings.Secure.putInt(cr, Settings.Secure.ACCESSIBILITY_ENABLED, 1)
         }
-    }
-
-    /** Pausa/religa o Tailscale (sempre-ativa + ForceEnabled). O monitor de VPN reassume ao sair. */
-    private fun setVpn(context: Context, on: Boolean) {
-        val pkg = RulesRepository.config.value.vpn.tailscalePackage
-        val policy = PolicyManager(context)
-        policy.setTailscaleForceEnabled(on, pkg)
-        policy.setAlwaysOnVpn(if (on) pkg else null, lockdown = false)
-        if (!on) TailscaleController(context).disconnect(pkg)
     }
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

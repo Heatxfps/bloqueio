@@ -35,8 +35,6 @@ enum class VpnState(val label: String) {
 class HostMonitor(
     private val policy: PolicyManager,
     private val tailscale: TailscaleController,
-    /** Ambiente limpo pausou a VPN (banco aberto): não religar nem contar falhas. */
-    private val pausedByCleanEnv: () -> Boolean = { false },
 ) {
     private val _state = MutableStateFlow(VpnState.CONNECTING)
     val state: StateFlow<VpnState> = _state.asStateFlow()
@@ -55,11 +53,6 @@ class HostMonitor(
             }
             !tailscale.isInstalled(pkg) -> return set(VpnState.NOT_INSTALLED)
             !policy.isDeviceOwner -> return set(VpnState.NO_OWNER)
-        }
-
-        if (pausedByCleanEnv()) {
-            fails = 0
-            return
         }
 
         if (_state.value == VpnState.FAILOVER) {
