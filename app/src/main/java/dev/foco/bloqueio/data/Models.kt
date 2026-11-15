@@ -1,0 +1,108 @@
+package dev.foco.bloqueio.data
+
+import kotlinx.serialization.Serializable
+
+@Serializable
+enum class RuleType(val title: String) {
+    BLOCK("Sempre bloqueados"),
+    PROTECT_UNINSTALL("Protegidos contra desinstalação"),
+    SOCIAL("Redes sociais (cota)"),
+    GAME("Jogos (cota)"),
+    ESSENTIAL("Essenciais (liberados no horário)"),
+}
+
+/** Regra por nome de pacote: continua valendo mesmo se o app for desinstalado. */
+@Serializable
+data class Rule(
+    val packageName: String,
+    val type: RuleType,
+    val createdAt: Long,
+    val addedByAdmin: Boolean = false,
+)
+
+@Serializable
+enum class FocusLevel { OFF, PARTIAL, TOTAL }
+
+@Serializable
+data class Focus(val level: FocusLevel = FocusLevel.OFF, val until: Long = 0L) {
+    fun isActive(now: Long) = level != FocusLevel.OFF && until > now
+}
+
+@Serializable
+data class Schedule(
+    val enabled: Boolean = true,
+    /** Minutos desde 00:00. Padrão 20:00 → 04:00. */
+    val startMinute: Int = 20 * 60,
+    val endMinute: Int = 4 * 60,
+)
+
+@Serializable
+data class Quotas(val socialMinutes: Int = 20, val gamesMinutes: Int = 20)
+
+@Serializable
+data class VpnConfig(
+    val enabled: Boolean = true,
+    val tailscalePackage: String = "com.tailscale.ipn",
+    /** IP Tailscale do servidor host / exit node, ex.: 100.101.102.103. */
+    val hostIp: String = "",
+    val hostPort: Int = 22,
+    val failThreshold: Int = 3,
+    val retryMinutes: Int = 5,
+    /** Opcional: URL pública do host para detectar o retorno sem religar o Tailscale. */
+    val publicHealthUrl: String = "",
+)
+
+@Serializable
+data class Restrictions(
+    val blockFactoryReset: Boolean = true,
+    val blockSafeBoot: Boolean = true,
+    val blockVpnConfig: Boolean = true,
+    val blockDateTime: Boolean = true,
+)
+
+@Serializable
+data class AppConfig(
+    val rules: List<Rule> = emptyList(),
+    val secureFolder: List<String> = emptyList(),
+    val focus: Focus = Focus(),
+    val schedule: Schedule = Schedule(),
+    val quotas: Quotas = Quotas(),
+    val vpn: VpnConfig = VpnConfig(),
+    val restrictions: Restrictions = Restrictions(),
+) {
+    fun packagesOf(type: RuleType): Set<String> =
+        rules.asSequence().filter { it.type == type }.map { it.packageName }.toSet()
+}
+
+object Defaults {
+    val SOCIAL = listOf(
+        "com.instagram.android",
+        "com.instagram.barcelona", // Threads
+        "com.facebook.katana",
+        "com.facebook.lite",
+        "com.zhiliaoapp.musically", // TikTok
+        "com.ss.android.ugc.trill",
+        "com.google.android.youtube",
+        "com.kwai.video",
+        "com.twitter.android",
+        "com.snapchat.android",
+        "com.reddit.frontpage",
+        "com.pinterest",
+    )
+
+    val ESSENTIAL = listOf(
+        "com.samsung.android.dialer", "com.google.android.dialer", "com.android.dialer",
+        "com.samsung.android.messaging", "com.google.android.apps.messaging",
+        "com.samsung.android.app.contacts", "com.google.android.contacts",
+        "com.sec.android.app.clockpackage", "com.google.android.deskclock",
+        "com.sec.android.app.camera", "com.google.android.GoogleCamera",
+        "com.google.android.apps.maps", "com.waze",
+        "com.android.settings",
+        "com.tailscale.ipn",
+    )
+
+    fun initialConfig(now: Long) = AppConfig(
+        rules = SOCIAL.map { Rule(it, RuleType.SOCIAL, now, addedByAdmin = true) } +
+            ESSENTIAL.map { Rule(it, RuleType.ESSENTIAL, now, addedByAdmin = true) },
+    )
+}

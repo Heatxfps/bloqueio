@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Bloqueio</string>
+    <string name="accessibility_description">Detecta o app em primeiro plano para contar as cotas de redes sociais e jogos, bloquear apps fora do horário e fechar telas de consumo como Reels e Shorts. Nada é coletado ou enviado.</string>
+</resources>
