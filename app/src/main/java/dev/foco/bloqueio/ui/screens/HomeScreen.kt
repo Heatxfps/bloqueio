@@ -186,8 +186,8 @@ fun HomeScreen() {
                 SetupCell("Notificações (Now Bar)", notificationsOn, Icons.Rounded.Notifications) {
                     if (Build.VERSION.SDK_INT >= 33) notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }
-                SetupCell("Device Owner", isOwner, Icons.Rounded.AdminPanelSettings, null)
-                SetupCell("Configurações seguras", secureSettings, Icons.Rounded.Key, null, last = true)
+                SetupCell("Device Owner", isOwner, Icons.Rounded.AdminPanelSettings, onClick = null)
+                SetupCell("Configurações seguras", secureSettings, Icons.Rounded.Key, last = true, onClick = null)
             }
         }
     }
@@ -210,8 +210,8 @@ private fun SetupCell(
     title: String,
     done: Boolean,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    onClick: (() -> Unit)?,
     last: Boolean = false,
+    onClick: (() -> Unit)?,
 ) {
     Cell(
         title = title,

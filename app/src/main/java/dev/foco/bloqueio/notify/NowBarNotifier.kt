@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.os.Build
+import android.os.Bundle
 import dev.foco.bloqueio.R
 import dev.foco.bloqueio.data.FocusLevel
 import dev.foco.bloqueio.enforce.EnforceState
@@ -92,8 +93,9 @@ object NowBarNotifier {
                 .setProgressSegments(segments)
                 .setProgressPoints(listOf(Notification.ProgressStyle.Point(socialTotal).setColor(Color.WHITE)))
                 .setProgress(socialTotal + gamesTotal)
+            // Pedido de promoção para Live Update / Now Bar (Notification.EXTRA_REQUEST_PROMOTED_ONGOING).
             b.setStyle(style)
-                .setRequestPromotedOngoing(true)
+                .addExtras(Bundle().apply { putBoolean("android.requestPromotedOngoing", true) })
                 .setShortCriticalText(chip)
         } else {
             val used = (socialTotal - socialLeft) + (gamesTotal - gamesLeft)
