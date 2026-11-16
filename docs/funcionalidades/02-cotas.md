@@ -1,7 +1,17 @@
 # 02 · Cotas de distração
 
 - Duas cotas diárias independentes: **Redes sociais** (padrão 20 min) e **Jogos** (padrão 20 min). Zeram à meia-noite.
-- Contagem: a cada 10 s o `GuardService` soma o tempo se a tela estiver ligada e o app em primeiro plano (informado pelo serviço de acessibilidade) for da categoria.
+- **Contagem**: o `GuardService` soma de segundo em segundo o que a pessoa está **vendo**: a janela de app em foco, com a tela ligada. Não depende de toque, então um vídeo rodando parado continua contando.
+  - **Pausa** com a gaveta de notificações aberta, na tela de bloqueio ou com a tela apagada.
+  - **Jogos** e redes sem detector descontam o app inteiro.
+  - **Instagram, YouTube e Facebook** (e TikTok/Kwai) só descontam na **área de consumo**: o mesmo detector da tabela abaixo. O resto do app não conta.
+  - Cada mudança vai para o logcat com a tag `Quota` (`contando: Instagram · Reels/SOCIAL [aba selecionada "Reels"]`, `pausado (...)`).
+
+| App | Conta | Não conta (conferido no aparelho em 16/11/2026) |
+|---|---|---|
+| Instagram | Aba Reels; reel aberto da Pesquisa (player `clips_viewer_view_pager`) | Página inicial (mesmo com vídeo rodando), Direct, Pesquisa, Perfil |
+| YouTube | Aba Shorts; Short aberto da prateleira da Início (`reel_recycler`) | Início (com vídeo em autoplay), vídeo longo, miniplayer, Inscrições, Você |
+| Facebook | Aba Reels; reel aberto do feed (rótulo "Detalhes do reel") | Página inicial, foto aberta, foto 360°, Amigos, Marketplace, Notificações, Perfil |
 - **Jogos esgotados** → bloqueio total dos jogos.
 - **Redes esgotadas** → bloqueio **parcial**: só as telas de consumo são bloqueadas. Direct/mensagens, publicar, câmera, perfil e notificações continuam liberados para trabalho.
 
