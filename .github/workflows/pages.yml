@@ -28,7 +28,7 @@ jobs:
       - name: Montar o site
         run: |
           mkdir -p site/assets
-          cp .github/assets/*.svg site/assets/
+          cp .github/assets/*.svg .github/assets/*.png site/assets/
 
       - uses: actions/configure-pages@v5
 

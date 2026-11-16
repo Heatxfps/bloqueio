@@ -26,6 +26,8 @@ Para mudar qualquer regra, só com a **senha do admin**.
 
 Sem anúncios, sem contas e sem servidor: tudo fica no seu celular.
 
+<p align="center"><img src=".github/assets/telas.png" alt="Três telas reais do app: o cartão de Foco com os modos Parcial, Total e Bloquear e o botão Começar; a tela Regras com as categorias; e o Admin pedindo a senha mestra." width="100%"></p>
+
 ## O que ele faz
 
 <table>
