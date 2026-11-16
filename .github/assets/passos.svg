@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 280" role="img" aria-labelledby="t d">
+  <title id="t">Instalação em 4 passos</title>
+  <desc id="d">1. Baixe o APK. 2. Remova as contas por alguns minutos. 3. Rode três comandos no computador. 4. Abra o app e crie a senha do admin.</desc>
+  <defs>
+    <style>
+      .sans { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+      .fill { stroke-dasharray: 960 960; animation: fill 8s cubic-bezier(.6,0,.3,1) infinite; }
+      @keyframes fill { 0% { stroke-dashoffset: 960 } 70%,92% { stroke-dashoffset: 0 } 100% { stroke-dashoffset: 960 } }
+      .dot { animation: dot 8s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+      .k2 { animation-delay: 1.6s } .k3 { animation-delay: 3.3s } .k4 { animation-delay: 5s }
+      @keyframes dot { 0% { transform: scale(1) } 4% { transform: scale(1.25) } 10%,100% { transform: scale(1) } }
+      @media (prefers-reduced-motion: reduce) { .fill, .dot { animation: none } .fill { stroke-dashoffset: 0 } }
+    </style>
+    <linearGradient id="line" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FF375F"/><stop offset=".5" stop-color="#BF5AF2"/><stop offset="1" stop-color="#5E5CE6"/>
+    </linearGradient>
+    <clipPath id="card"><rect width="1280" height="280" rx="32"/></clipPath>
+  </defs>
+  <g clip-path="url(#card)">
+    <rect width="1280" height="280" fill="#0B0B10"/>
+    <line x1="160" y1="110" x2="1120" y2="110" stroke="#fff" stroke-opacity=".12" stroke-width="4" stroke-linecap="round"/>
+    <line class="fill" x1="160" y1="110" x2="1120" y2="110" stroke="url(#line)" stroke-width="4" stroke-linecap="round"/>
+    <g class="sans" text-anchor="middle">
+      <g class="dot"><circle cx="160" cy="110" r="30" fill="#FF375F"/><text x="160" y="120" font-size="26" font-weight="800" fill="#fff">1</text></g>
+      <g class="dot k2"><circle cx="480" cy="110" r="30" fill="#E0479F"/><text x="480" y="120" font-size="26" font-weight="800" fill="#fff">2</text></g>
+      <g class="dot k3"><circle cx="800" cy="110" r="30" fill="#BF5AF2"/><text x="800" y="120" font-size="26" font-weight="800" fill="#fff">3</text></g>
+      <g class="dot k4"><circle cx="1120" cy="110" r="30" fill="#5E5CE6"/><text x="1120" y="120" font-size="26" font-weight="800" fill="#fff">4</text></g>
+      <g font-size="22" font-weight="700" fill="#fff">
+        <text x="160" y="186">Baixe o APK</text>
+        <text x="480" y="186">Tire as contas</text>
+        <text x="800" y="186">3 comandos no PC</text>
+        <text x="1120" y="186">Crie a senha</text>
+      </g>
+      <g font-size="16" fill="#fff" fill-opacity=".55">
+        <text x="160" y="214">bloqueio.apk na Release</text>
+        <text x="480" y="214">só por alguns minutos</text>
+        <text x="800" y="214">adb · Device Owner</text>
+        <text x="1120" y="214">e guarde o código</text>
+      </g>
+    </g>
+    <rect x=".75" y=".75" width="1278.5" height="278.5" rx="31.5" fill="none" stroke="#fff" stroke-opacity=".1" stroke-width="1.5"/>
+  </g>
+</svg>

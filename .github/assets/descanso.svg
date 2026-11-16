@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420" role="img" aria-labelledby="t d">
+  <title id="t">Horário de descanso</title>
+  <desc id="d">Das 20h às 4h o celular vira um Hub com relógio e só os apps essenciais. Notificações e controles rápidos continuam funcionando.</desc>
+  <defs>
+    <style>
+      .sans { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+      .num { font-variant-numeric: tabular-nums; }
+      .tw { animation: tw 3s ease-in-out infinite; }
+      .s2 { animation-delay: .7s } .s3 { animation-delay: 1.4s } .s4 { animation-delay: 2.1s } .s5 { animation-delay: 1s } .s6 { animation-delay: 2.5s }
+      @keyframes tw { 0%,100% { opacity: .2 } 50% { opacity: 1 } }
+      .moon { animation: moon 7s ease-in-out infinite alternate; }
+      @keyframes moon { from { transform: translateY(-4px) } to { transform: translateY(4px) } }
+      .arc { stroke-dasharray: 377 377; animation: arc 12s ease-in-out infinite alternate; }
+      @keyframes arc { from { stroke-dashoffset: 250 } to { stroke-dashoffset: 215 } }
+      .app { animation: pop .6s cubic-bezier(.2,.9,.3,1.3) both; transform-box: fill-box; transform-origin: center; }
+      .a1 { animation-delay: .2s } .a2 { animation-delay: .32s } .a3 { animation-delay: .44s } .a4 { animation-delay: .56s }
+      @keyframes pop { from { transform: scale(.6) } to { transform: none } }
+      @media (prefers-reduced-motion: reduce) { .tw, .moon, .arc { animation: none } .app { animation: none } }
+    </style>
+    <linearGradient id="night" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0E0B24"/><stop offset="1" stop-color="#05050A"/></linearGradient>
+    <filter id="blur" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="55"/></filter>
+    <clipPath id="card"><rect width="640" height="420" rx="32"/></clipPath>
+  </defs>
+  <g clip-path="url(#card)">
+    <rect width="640" height="420" fill="url(#night)"/>
+    <g filter="url(#blur)"><circle cx="520" cy="110" r="140" fill="#5E5CE6" opacity=".45"/></g>
+    <g fill="#fff">
+      <circle class="tw" cx="360" cy="40" r="1.6"/><circle class="tw s2" cx="430" cy="70" r="1.2"/>
+      <circle class="tw s3" cx="600" cy="48" r="1.8"/><circle class="tw s4" cx="300" cy="160" r="1.2"/>
+      <circle class="tw s5" cx="610" cy="190" r="1.4"/><circle class="tw s6" cx="250" cy="30" r="1.3"/>
+    </g>
+    <g class="sans">
+      <text x="40" y="66" font-size="15" font-weight="700" fill="#8E8CFF" letter-spacing=".4">DESCANSO</text>
+      <text x="40" y="104" font-size="32" font-weight="800" letter-spacing="-1" fill="#fff">À noite, só o essencial.</text>
+      <text x="40" y="136" font-size="17" fill="#fff" fill-opacity=".62">O celular vira um Hub. Gaveta e controles continuam.</text>
+    </g>
+
+    <!-- Lua -->
+    <g class="moon">
+      <path d="M548 66a40 40 0 1 0 38 52 32 32 0 0 1-38-52z" fill="#E9E7FF"/>
+    </g>
+
+    <!-- Relógio do Hub -->
+    <g transform="translate(150 290) rotate(-90)">
+      <circle r="60" fill="none" stroke="#5E5CE6" stroke-opacity=".22" stroke-width="8"/>
+      <circle class="arc" r="60" fill="none" stroke="#5E5CE6" stroke-width="8" stroke-linecap="round"/>
+    </g>
+    <g class="sans" text-anchor="middle">
+      <text class="num" x="150" y="298" font-size="30" font-weight="300" fill="#fff" letter-spacing="-1">22:14</text>
+      <text x="150" y="384" font-size="14" fill="#fff" fill-opacity=".6">libera às 04:00</text>
+    </g>
+
+    <!-- Apps essenciais -->
+    <g class="sans" font-size="13" fill="#fff" fill-opacity=".75" text-anchor="middle">
+      <g class="app a1">
+        <rect x="270" y="232" width="64" height="64" rx="16" fill="#30D158"/>
+        <path d="M291 250c0 12 9 22 22 25l4-5-6-4-3 3c-4-2-7-5-9-9l3-3-4-6z" fill="#fff"/>
+        <text x="302" y="320">Telefone</text>
+      </g>
+      <g class="app a2">
+        <rect x="354" y="232" width="64" height="64" rx="16" fill="#0A84FF"/>
+        <path d="M372 252h28a4 4 0 0 1 4 4v14a4 4 0 0 1-4 4h-18l-8 6v-6h-2a4 4 0 0 1-4-4v-14a4 4 0 0 1 4-4z" fill="#fff"/>
+        <text x="386" y="320">Mensagens</text>
+      </g>
+      <g class="app a3">
+        <rect x="438" y="232" width="64" height="64" rx="16" fill="#FF9F0A"/>
+        <path d="M470 248a12 12 0 0 1 12 12c0 9-12 22-12 22s-12-13-12-22a12 12 0 0 1 12-12zm0 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z" fill="#fff"/>
+        <text x="470" y="320">Mapas</text>
+      </g>
+      <g class="app a4">
+        <rect x="522" y="232" width="64" height="64" rx="16" fill="#fff" fill-opacity=".12" stroke="#fff" stroke-opacity=".25"/>
+        <rect x="542" y="262" width="24" height="18" rx="4" fill="#fff"/>
+        <path d="M546 262v-5a8 8 0 0 1 16 0v5" fill="none" stroke="#fff" stroke-width="3"/>
+        <text x="554" y="320">Bancos</text>
+      </g>
+      <text x="428" y="372" font-size="14" fill-opacity=".5">Pasta segura liberada à noite</text>
+    </g>
+    <rect x=".75" y=".75" width="638.5" height="418.5" rx="31.5" fill="none" stroke="#fff" stroke-opacity=".1" stroke-width="1.5"/>
+  </g>
+</svg>
