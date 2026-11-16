@@ -11,12 +11,17 @@ class AdminRequiredException : IllegalStateException("Ação permitida somente a
  */
 object AdminSession {
     private val _unlockedUntil = MutableStateFlow(0L)
+
+    /** Quando o desbloqueio atual começou (para a barra de progresso da Now Bar). */
+    @Volatile var unlockedAt = 0L
+        private set
     val unlockedUntil: StateFlow<Long> = _unlockedUntil.asStateFlow()
 
     fun isUnlocked(now: Long = System.currentTimeMillis()) = _unlockedUntil.value > now
 
     fun unlock(minutes: Int) {
-        _unlockedUntil.value = System.currentTimeMillis() + minutes * 60_000L
+        unlockedAt = System.currentTimeMillis()
+        _unlockedUntil.value = unlockedAt + minutes * 60_000L
     }
 
     fun lock() {

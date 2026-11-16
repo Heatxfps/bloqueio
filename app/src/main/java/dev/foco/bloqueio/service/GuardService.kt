@@ -21,6 +21,7 @@ import dev.foco.bloqueio.enforce.Verdict
 import dev.foco.bloqueio.notify.NowBarNotifier
 import dev.foco.bloqueio.ui.HubActivity
 import dev.foco.bloqueio.securefolder.CleanEnvironment
+import dev.foco.bloqueio.security.AdminSession
 import dev.foco.bloqueio.vpn.HostMonitor
 import dev.foco.bloqueio.vpn.TailscaleController
 import kotlinx.coroutines.CoroutineScope
@@ -57,7 +58,7 @@ class GuardService : Service() {
         monitor = HostMonitor(policy, TailscaleController(this))
         startForeground(
             NowBarNotifier.ID,
-            NowBarNotifier.build(this, currentState(), monitor.state.value),
+            NowBarNotifier.build(this, currentState(), monitor.state.value, inUse()),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
         )
         ContextCompat.registerReceiver(
@@ -76,9 +77,19 @@ class GuardService : Service() {
                 // Mudou regra/horário/pausa: reaplica já, sem esperar o próximo ciclo de 30 s.
                 runCatching { applyPolicies() }
                 runCatching { syncHub() }
+                // Foco começou/terminou, pausa, cotas mudadas: a Now Bar troca na hora.
+                runCatching { refreshNowBar() }
             }
         }
-        scope.launch { monitor.state.collect { GuardState.vpn.value = it } }
+        // Abriu/fechou rede social ou jogo, ou o admin destravou: troca o cartão na hora.
+        scope.launch { GuardState.foreground.collect { runCatching { refreshNowBar() } } }
+        scope.launch { AdminSession.unlockedUntil.collect { runCatching { refreshNowBar() } } }
+        scope.launch {
+            monitor.state.collect {
+                GuardState.vpn.value = it
+                runCatching { refreshNowBar() }
+            }
+        }
         scope.launch { loop() }
         scope.launch { watchCleanEnvironment() }
         scope.launch {
@@ -116,10 +127,23 @@ class GuardService : Service() {
                 syncHub()
                 healAccessibility()
                 restoreCleanEnvIfOrphan()
-                NowBarNotifier.update(this, currentState(), monitor.state.value)
+                refreshNowBar()
             }
             delay(10_000)
         }
+    }
+
+    private fun refreshNowBar() {
+        NowBarNotifier.update(this, currentState(), monitor.state.value, inUse())
+    }
+
+    /** Rede social ou jogo aberto agora, com a tela ligada (é quando a cota desce). */
+    private fun inUse(): NowBarNotifier.InUse? {
+        if (!getSystemService(PowerManager::class.java).isInteractive) return null
+        val pkg = GuardState.foreground.value ?: return null
+        val cat = catalog.category(pkg, RulesRepository.config.value)
+        if (cat == Category.NONE) return null
+        return NowBarNotifier.InUse(catalog.label(pkg), cat)
     }
 
     private fun countUsage(seconds: Long) {
