@@ -45,6 +45,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import dev.foco.bloqueio.data.AppCatalog
+import dev.foco.bloqueio.data.InstalledApp
+import androidx.compose.runtime.produceState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import dev.foco.bloqueio.data.RuleType
 import dev.foco.bloqueio.data.RulesRepository
 import dev.foco.bloqueio.ui.components.AppIcon
@@ -199,6 +203,30 @@ private fun RuleTypeScreen(type: RuleType, onBack: () -> Unit) {
                         showDivider = false,
                         onClick = { picking = true },
                     )
+                }
+                if (type == RuleType.GAME) {
+                    // Jogos que o Android já marca como jogo: contam na cota sem precisar de regra.
+                    val manual = config.packagesOf(RuleType.GAME) + config.packagesOf(RuleType.SOCIAL)
+                    val auto by produceState(emptyList<InstalledApp>(), manual) {
+                        value = withContext(Dispatchers.IO) {
+                            catalog.launchableApps().filter { it.isGame && it.packageName !in manual }
+                        }
+                    }
+                    if (auto.isNotEmpty()) {
+                        GroupedSection(
+                            header = "Detectados automaticamente",
+                            footer = "O Android marca esses apps como jogo, então eles já contam na cota.",
+                        ) {
+                            auto.forEachIndexed { i, app ->
+                                Cell(
+                                    title = app.label,
+                                    subtitle = app.packageName,
+                                    leading = { AppIcon(app.packageName) },
+                                    showDivider = i < auto.lastIndex,
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
