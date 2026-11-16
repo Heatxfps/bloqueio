@@ -183,6 +183,8 @@ class GuardService : Service() {
     }
 
     /** Religa o serviço de acessibilidade se alguém o desativou (requer WRITE_SECURE_SETTINGS). */
+    private var a11yStuckSince = 0L
+
     private fun healAccessibility() {
         if (!CleanEnvironment.canWriteSecureSettings(this)) return
         // O ambiente limpo desligou a acessibilidade de propósito (banco aberto): não religar.
@@ -190,7 +192,24 @@ class GuardService : Service() {
         val me = "$packageName/${GuardAccessibilityService::class.java.name}"
         val cr = contentResolver
         val enabled = Settings.Secure.getString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
-        if (enabled.split(':').none { it.equals(me, ignoreCase = true) }) {
+        val listed = enabled.split(':').any { it.equals(me, ignoreCase = true) }
+        // Depois de atualizar o app, o Android às vezes fica preso "ligando" o serviço: está na
+        // lista mas nunca conecta. Passados 30 s assim, tira e põe de novo para destravar.
+        if (listed && !GuardState.accessibilityConnected.value) {
+            if (a11yStuckSince == 0L) a11yStuckSince = System.currentTimeMillis()
+            if (System.currentTimeMillis() - a11yStuckSince > 30_000) {
+                val others = enabled.split(':').filter { it.isNotBlank() && !it.equals(me, ignoreCase = true) }
+                runCatching {
+                    Settings.Secure.putString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, others.joinToString(":"))
+                    Settings.Secure.putString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, (others + me).joinToString(":"))
+                    Settings.Secure.putInt(cr, Settings.Secure.ACCESSIBILITY_ENABLED, 1)
+                }
+                a11yStuckSince = 0L
+            }
+            return
+        }
+        a11yStuckSince = 0L
+        if (!listed) {
             val next = if (enabled.isBlank()) me else "$enabled:$me"
             runCatching {
                 Settings.Secure.putString(cr, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, next)
