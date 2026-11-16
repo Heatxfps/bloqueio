@@ -86,7 +86,14 @@ object DistractionDetector {
 
     fun supports(pkg: String) = pkg in specs
 
-    fun detect(pkg: String, root: AccessibilityNodeInfo?): Detection? {
+    /** [log] = false no contador de cotas (roda a cada segundo; não enche o logcat). */
+    fun detect(pkg: String, root: AccessibilityNodeInfo?, log: Boolean = true): Detection? {
+        val d = find(pkg, root) ?: return null
+        if (log) log(d)
+        return d
+    }
+
+    private fun find(pkg: String, root: AccessibilityNodeInfo?): Detection? {
         val spec = specs[pkg] ?: return null
         root ?: return null
         val screen = Rect().also(root::getBoundsInScreen)
@@ -95,18 +102,18 @@ object DistractionDetector {
         // Aba primeiro: dá para sair tocando numa aba permitida, sem "voltar".
         val tab = findNavItem(root, screen, spec.consumptionTabs, selectedOnly = true)
         if (tab != null) {
-            return Detection(spec.label, viaTab = true, reason = "aba selecionada \"${labelOf(tab)}\"").also(::log)
+            return Detection(spec.label, viaTab = true, reason = "aba selecionada \"${labelOf(tab)}\"")
         }
         for (id in spec.viewerIds) {
             val full = root.findAccessibilityNodeInfosByViewId("$pkg:id/$id").firstOrNull { n ->
                 val r = Rect().also(n::getBoundsInScreen)
                 n.isVisibleToUser && r.width() >= screen.width() * 0.9f && r.height() >= screen.height() * 0.7f
             }
-            if (full != null) return Detection(spec.label, viaTab = false, reason = "visualizador $id").also(::log)
+            if (full != null) return Detection(spec.label, viaTab = false, reason = "visualizador $id")
         }
         if (spec.viewerLabels.isNotEmpty()) {
             findByLabelPrefix(root, spec.viewerLabels, depth = 0)?.let { n ->
-                return Detection(spec.label, viaTab = false, reason = "player \"${labelOf(n)}\"").also(::log)
+                return Detection(spec.label, viaTab = false, reason = "player \"${labelOf(n)}\"")
             }
         }
         return null

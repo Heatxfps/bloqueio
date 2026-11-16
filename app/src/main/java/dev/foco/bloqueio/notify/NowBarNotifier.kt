@@ -52,7 +52,7 @@ object NowBarNotifier {
     private const val PRE_REST_MIN = 15
 
     /** App de cota aberto agora (rede social ou jogo). */
-    data class InUse(val label: String, val category: Category)
+    data class InUse(val label: String, val category: Category, val why: String? = null)
 
     fun createChannel(context: Context) {
         val channel = NotificationChannel(CHANNEL, "Cotas e foco", NotificationManager.IMPORTANCE_DEFAULT).apply {

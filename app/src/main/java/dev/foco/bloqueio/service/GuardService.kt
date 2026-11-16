@@ -1,5 +1,6 @@
 package dev.foco.bloqueio.service
 
+import dev.foco.bloqueio.enforce.DistractionDetector
 import android.util.Log
 import android.app.Service
 import android.content.BroadcastReceiver
@@ -154,7 +155,7 @@ class GuardService : Service() {
             runCatching {
                 val use = inUse()
                 if (use != null && elapsed > 0) QuotaTracker.add(use.category, elapsed)
-                val tag = use?.let { "${it.label}/${it.category}" }
+                val tag = use?.let { "${it.label}/${it.category}" + (it.why?.let { w -> " [$w]" } ?: "") }
                 if (tag != lastLogged) {
                     Log.i("Quota", if (tag == null) "pausado (${pauseReason()})" else "contando: $tag")
                     lastLogged = tag
@@ -165,10 +166,12 @@ class GuardService : Service() {
         }
     }
 
-    private fun pauseReason(): String = when {
-        !getSystemService(PowerManager::class.java).isInteractive -> "tela apagada"
-        GuardAccessibilityService.instance?.systemPanelOnTop() == true -> "gaveta ou tela de bloqueio"
-        else -> "app sem cota: ${visiblePackage()}"
+    private fun pauseReason(): String {
+        if (!getSystemService(PowerManager::class.java).isInteractive) return "tela apagada"
+        if (GuardAccessibilityService.instance?.systemPanelOnTop() == true) return "gaveta ou tela de bloqueio"
+        val pkg = visiblePackage()
+        return if (pkg != null && DistractionDetector.supports(pkg)) "${catalog.label(pkg)} fora de Reels/Shorts"
+        else "app sem cota: $pkg"
     }
 
     /** Pacote do app que a pessoa está vendo (janela em foco), ou null se um painel do sistema cobre. */
@@ -184,6 +187,14 @@ class GuardService : Service() {
         val pkg = visiblePackage() ?: return null
         val cat = catalog.category(pkg, RulesRepository.config.value)
         if (cat == Category.NONE) return null
+        // Redes com detector (Instagram, Facebook, YouTube, TikTok...): a cota só desce na área
+        // de consumo (Reels, Shorts). Feed, busca, mensagens e perfil não descontam.
+        // Jogos e redes sem detector descontam o app inteiro.
+        if (cat == Category.SOCIAL && DistractionDetector.supports(pkg)) {
+            val a11y = GuardAccessibilityService.instance ?: return null
+            val area = a11y.consumptionOnScreen(pkg) ?: return null
+            return NowBarNotifier.InUse("${catalog.label(pkg)} · ${area.area}", cat, area.reason)
+        }
         return NowBarNotifier.InUse(catalog.label(pkg), cat)
     }
 

@@ -1,5 +1,6 @@
 package dev.foco.bloqueio.service
 
+import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
@@ -125,12 +126,23 @@ class GuardAccessibilityService : AccessibilityService() {
     }.getOrDefault(false)
 
     /** Pacote da janela de app em foco (a que a pessoa está vendo e usando). */
-    fun focusedAppPackage(): String? = runCatching {
+    fun focusedAppPackage(): String? = focusedAppRoot()?.packageName?.toString()
+
+    private fun focusedAppRoot(): AccessibilityNodeInfo? = runCatching {
         val apps = windows.filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
-        val w = apps.firstOrNull { it.isFocused } ?: apps.firstOrNull { it.isActive } ?: return null
-        val root = w.root ?: return null
-        root.packageName?.toString()
+        val w = apps.firstOrNull { it.isFocused } ?: apps.firstOrNull { it.isActive }
+        w?.root
     }.getOrNull()
+
+    /**
+     * Área de consumo (Reels, Shorts...) que está na tela agora em [pkg], ou null se a pessoa
+     * está em outra parte do app (feed, busca, mensagens, perfil...). Base da contagem da cota.
+     */
+    fun consumptionOnScreen(pkg: String): DistractionDetector.Detection? {
+        val root = focusedAppRoot() ?: return null
+        if (root.packageName?.toString() != pkg) return null
+        return DistractionDetector.detect(pkg, root, log = false)
+    }
 
     override fun onDestroy() {
         if (instance === this) instance = null
