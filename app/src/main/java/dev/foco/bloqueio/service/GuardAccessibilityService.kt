@@ -1,5 +1,6 @@
 package dev.foco.bloqueio.service
 
+import android.view.accessibility.AccessibilityWindowInfo
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.view.accessibility.AccessibilityEvent
@@ -31,6 +32,7 @@ class GuardAccessibilityService : AccessibilityService() {
     private var lastBackPkg: String? = null
 
     override fun onServiceConnected() {
+        instance = this
         catalog = AppCatalog(this)
         refreshSets()
         GuardState.accessibilityConnected.value = true
@@ -108,7 +110,30 @@ class GuardAccessibilityService : AccessibilityService() {
 
     override fun onInterrupt() = Unit
 
+    companion object {
+        /** Instância conectada (mesmo processo), para o contador perguntar o que está na tela. */
+        @Volatile var instance: GuardAccessibilityService? = null
+            private set
+    }
+
+    /**
+     * Gaveta de notificações, painel rápido ou tela de bloqueio por cima: a janela do sistema
+     * está com o foco (no Samsung, a "NotificationShade").
+     */
+    fun systemPanelOnTop(): Boolean = runCatching {
+        windows.any { it.type == AccessibilityWindowInfo.TYPE_SYSTEM && it.isFocused }
+    }.getOrDefault(false)
+
+    /** Pacote da janela de app em foco (a que a pessoa está vendo e usando). */
+    fun focusedAppPackage(): String? = runCatching {
+        val apps = windows.filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+        val w = apps.firstOrNull { it.isFocused } ?: apps.firstOrNull { it.isActive } ?: return null
+        val root = w.root ?: return null
+        root.packageName?.toString()
+    }.getOrNull()
+
     override fun onDestroy() {
+        if (instance === this) instance = null
         GuardState.accessibilityConnected.value = false
         super.onDestroy()
     }

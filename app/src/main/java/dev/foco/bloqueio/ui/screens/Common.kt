@@ -37,6 +37,12 @@ fun runGuarded(context: android.content.Context, action: () -> Unit) {
     }
 }
 
+/** Relógio da cota: 12:34 (min:seg) ou 1:02:03 acima de uma hora. Igual ao da notificação. */
+fun formatClock(sec: Long): String {
+    val s = sec.coerceAtLeast(0)
+    return if (s >= 3600) "%d:%02d:%02d".format(s / 3600, s / 60 % 60, s % 60) else "%d:%02d".format(s / 60, s % 60)
+}
+
 fun formatMinutes(sec: Long): String {
     val m = (sec + 59) / 60
     return if (m >= 60) "${m / 60} h ${m % 60} min" else "$m min"

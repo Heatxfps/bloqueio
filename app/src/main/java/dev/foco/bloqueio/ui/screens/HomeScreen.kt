@@ -182,7 +182,7 @@ private fun QuotaLine(title: String, secondsLeft: Long, color: Color) {
             Text(title, style = BloqueioType.footnote, color = Bloqueio.colors.secondaryLabel)
             // Cota zerada também em texto: a informação não depende só do anel/cor.
             RollingText(
-                if (secondsLeft <= 0) "Esgotada" else formatMinutes(secondsLeft),
+                if (secondsLeft <= 0) "Esgotada" else formatClock(secondsLeft),
                 style = BloqueioType.title2, color = Bloqueio.colors.label,
             )
         }

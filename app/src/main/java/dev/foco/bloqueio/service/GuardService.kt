@@ -1,5 +1,6 @@
 package dev.foco.bloqueio.service
 
+import android.util.Log
 import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -12,7 +13,6 @@ import android.provider.Settings
 import androidx.core.content.ContextCompat
 import dev.foco.bloqueio.admin.PolicyManager
 import dev.foco.bloqueio.data.AppCatalog
-import dev.foco.bloqueio.data.FocusLevel
 import dev.foco.bloqueio.data.RulesRepository
 import dev.foco.bloqueio.enforce.Category
 import dev.foco.bloqueio.enforce.EnforceState
@@ -92,7 +92,7 @@ class GuardService : Service() {
             }
         }
         scope.launch { loop() }
-        scope.launch { liveTicker() }
+        scope.launch { counter() }
         scope.launch { watchCleanEnvironment() }
         scope.launch {
             while (isActive) {
@@ -121,8 +121,6 @@ class GuardService : Service() {
             last = now
             runCatching {
                 RulesRepository.expireFocusIfNeeded(now)
-                countUsage(elapsed)
-                lastCountAt = now
                 if (now - lastSuspendSync > 30_000) {
                     applyPolicies()
                     lastSuspendSync = now
@@ -136,46 +134,57 @@ class GuardService : Service() {
         }
     }
 
-    /** Último momento em que o uso foi somado às cotas (o ciclo soma de 10 em 10 s). */
-    @Volatile private var lastCountAt = System.currentTimeMillis()
-
     private fun refreshNowBar() {
-        val use = inUse()
-        var s = currentState()
-        // Entre um ciclo e outro, desconta ao vivo o tempo do app aberto: os segundos andam de 1 em 1.
-        if (use != null) {
-            val extra = ((System.currentTimeMillis() - lastCountAt) / 1000).coerceIn(0, 30)
-            s = if (use.category == Category.SOCIAL) s.copy(usedSocialSec = s.usedSocialSec + extra)
-            else s.copy(usedGamesSec = s.usedGamesSec + extra)
-        }
-        NowBarNotifier.update(this, s, monitor.state.value, use)
+        NowBarNotifier.update(this, currentState(), monitor.state.value, inUse())
     }
 
-    /** Com rede social ou jogo aberto, a Now Bar atualiza a cada segundo (min:seg no título). */
-    private suspend fun liveTicker() {
+    /**
+     * Conta as cotas de segundo em segundo. Desconta só o que a pessoa está VENDO: o app da janela
+     * em foco, com a tela ligada. Gaveta de notificações aberta, tela de bloqueio ou tela apagada
+     * = pausa. Não depende de toque nem de eventos: um vídeo rodando parado continua contando.
+     */
+    private suspend fun counter() {
+        var last = System.currentTimeMillis()
+        var lastLogged: String? = ""
         while (scope.isActive) {
             delay(1_000)
-            val s = currentState()
-            if (s.focusLevel == FocusLevel.OFF && !s.phoneLocked && inUse() != null) runCatching { refreshNowBar() }
+            val now = System.currentTimeMillis()
+            val elapsed = ((now - last) / 1000).coerceIn(0, 5)
+            last += elapsed * 1000
+            runCatching {
+                val use = inUse()
+                if (use != null && elapsed > 0) QuotaTracker.add(use.category, elapsed)
+                val tag = use?.let { "${it.label}/${it.category}" }
+                if (tag != lastLogged) {
+                    Log.i("Quota", if (tag == null) "pausado (${pauseReason()})" else "contando: $tag")
+                    lastLogged = tag
+                }
+                // Com app de cota na tela, a notificação acompanha cada segundo.
+                if (use != null) refreshNowBar()
+            }
         }
+    }
+
+    private fun pauseReason(): String = when {
+        !getSystemService(PowerManager::class.java).isInteractive -> "tela apagada"
+        GuardAccessibilityService.instance?.systemPanelOnTop() == true -> "gaveta ou tela de bloqueio"
+        else -> "app sem cota: ${visiblePackage()}"
+    }
+
+    /** Pacote do app que a pessoa está vendo (janela em foco), ou null se um painel do sistema cobre. */
+    private fun visiblePackage(): String? {
+        val a11y = GuardAccessibilityService.instance ?: return GuardState.foreground.value
+        if (a11y.systemPanelOnTop()) return null
+        return a11y.focusedAppPackage() ?: GuardState.foreground.value
     }
 
     /** Rede social ou jogo aberto agora, com a tela ligada (é quando a cota desce). */
     private fun inUse(): NowBarNotifier.InUse? {
         if (!getSystemService(PowerManager::class.java).isInteractive) return null
-        val pkg = GuardState.foreground.value ?: return null
+        val pkg = visiblePackage() ?: return null
         val cat = catalog.category(pkg, RulesRepository.config.value)
         if (cat == Category.NONE) return null
         return NowBarNotifier.InUse(catalog.label(pkg), cat)
-    }
-
-    private fun countUsage(seconds: Long) {
-        if (seconds <= 0) return
-        val screenOn = getSystemService(PowerManager::class.java).isInteractive
-        val pkg = GuardState.foreground.value ?: return
-        if (!screenOn) return
-        val cat = catalog.category(pkg, RulesRepository.config.value)
-        if (cat != Category.NONE) QuotaTracker.add(cat, seconds)
     }
 
     /** Suspende (Device Owner) tudo que está em Block; o resto fica com a acessibilidade. */

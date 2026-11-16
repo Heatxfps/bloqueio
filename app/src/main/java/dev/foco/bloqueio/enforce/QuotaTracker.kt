@@ -15,6 +15,7 @@ data class DailyUsage(val date: String, val socialSec: Long = 0, val gamesSec: L
 /** Uso diário por categoria. Zera sozinho quando a data muda. */
 object QuotaTracker {
     private lateinit var dir: File
+    private var lastWrite = 0L
     private val _usage = MutableStateFlow(DailyUsage(LocalDate.now().toString()))
     val usage: StateFlow<DailyUsage> = _usage.asStateFlow()
 
@@ -32,7 +33,13 @@ object QuotaTracker {
             Category.NONE -> return
         }
         _usage.value = next
-        File(dir, "usage-${next.date}.json").writeText(Json.encodeToString(DailyUsage.serializer(), next))
+        // Conta de segundo em segundo, mas só grava no disco a cada 10 s (no máximo 10 s perdidos
+        // se o processo morrer).
+        val now = System.currentTimeMillis()
+        if (now - lastWrite >= 10_000) {
+            lastWrite = now
+            File(dir, "usage-${next.date}.json").writeText(Json.encodeToString(DailyUsage.serializer(), next))
+        }
     }
 
     /** Uso de hoje (troca de dia aplicada). */
