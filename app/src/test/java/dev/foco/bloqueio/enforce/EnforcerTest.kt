@@ -66,6 +66,14 @@ class EnforcerTest {
         assertEquals(Verdict.Block(BlockReason.FOCUS), Enforcer.decide("ig", Category.SOCIAL, false, state(c)))
     }
 
+    @Test fun `foco bloquear libera so essenciais e pasta segura`() {
+        val c = base.copy(focus = Focus(FocusLevel.LOCK, now + 60_000), secureFolder = listOf("banco"))
+        assertEquals(Verdict.Block(BlockReason.FOCUS), Enforcer.decide("x", Category.NONE, false, state(c)))
+        assertEquals(Verdict.Allow, Enforcer.decide("dialer", Category.NONE, false, state(c)))
+        assertEquals(Verdict.Allow, Enforcer.decide("banco", Category.NONE, false, state(c)))
+        assertEquals(Verdict.Block(BlockReason.FOCUS), Enforcer.decide("ig", Category.SOCIAL, false, state(c)))
+    }
+
     @Test fun `foco expirado nao vale`() {
         val c = base.copy(focus = Focus(FocusLevel.TOTAL, now - 1))
         assertEquals(Verdict.Allow, Enforcer.decide("ig", Category.SOCIAL, false, state(c)))

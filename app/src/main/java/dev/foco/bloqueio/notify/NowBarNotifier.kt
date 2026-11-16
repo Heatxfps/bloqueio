@@ -80,7 +80,11 @@ object NowBarNotifier {
                 "Modo noite até ${ScheduleWindow.format(s.config.schedule.endMinute)}" to "Noite"
             s.focusLevel != FocusLevel.OFF -> {
                 val until = Instant.ofEpochMilli(s.config.focus.until).atZone(ZoneId.systemDefault()).toLocalTime()
-                val name = if (s.focusLevel == FocusLevel.TOTAL) "Foco total" else "Foco parcial"
+                val name = when (s.focusLevel) {
+                    FocusLevel.LOCK -> "Celular bloqueado"
+                    FocusLevel.TOTAL -> "Foco total"
+                    else -> "Foco parcial"
+                }
                 "$name · até %02d:%02d".format(until.hour, until.minute) to "Foco"
             }
             else -> "Redes $socialLeft min · Jogos $gamesLeft min" to "${minOf(socialLeft, gamesLeft)}m"

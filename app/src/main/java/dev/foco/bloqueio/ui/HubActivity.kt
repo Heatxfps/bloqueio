@@ -1,5 +1,7 @@
 package dev.foco.bloqueio.ui
 
+import dev.foco.bloqueio.data.Focus
+import dev.foco.bloqueio.data.FocusLevel
 import dev.foco.bloqueio.securefolder.CleanEnvironment
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import android.content.Intent
@@ -126,8 +128,8 @@ private fun Hub(onFinished: () -> Unit) {
     val state = remember(config, now) { GuardService.state() }
     var admin by remember { mutableStateOf(false) }
 
-    LaunchedEffect(state.inSchedule) {
-        if (!state.inSchedule) {
+    LaunchedEffect(state.phoneLocked) {
+        if (!state.phoneLocked) {
             delay(1_200)
             onFinished()
         }
@@ -153,8 +155,22 @@ private fun Hub(onFinished: () -> Unit) {
     val start = config.schedule.startMinute
     val end = config.schedule.endMinute
     val total = ((end - start + 1440) % 1440).coerceAtLeast(1)
-    val remaining = (end - minuteNow + 1440) % 1440
-    val elapsedFraction = (1f - remaining.toFloat() / total).coerceIn(0f, 1f)
+    // Foco "Bloquear" fora do descanso: a contagem é a do foco.
+    val byFocus = !state.inSchedule && state.focusLocks
+    val focus = config.focus
+    val remaining = if (byFocus) ((focus.until - now) / 60_000L).toInt() + 1 else (end - minuteNow + 1440) % 1440
+    val elapsedFraction = if (byFocus) {
+        val totalMs = (focus.until - focus.startedAt).coerceAtLeast(1)
+        (1f - (focus.until - now).toFloat() / totalMs).coerceIn(0f, 1f)
+    } else {
+        (1f - remaining.toFloat() / total).coerceIn(0f, 1f)
+    }
+    val endLabel = if (byFocus) {
+        val e = java.time.Instant.ofEpochMilli(focus.until).atZone(java.time.ZoneId.systemDefault()).toLocalTime()
+        "%02d:%02d".format(e.hour, e.minute)
+    } else {
+        ScheduleWindow.format(end)
+    }
 
     Column(
         Modifier
@@ -188,12 +204,16 @@ private fun Hub(onFinished: () -> Unit) {
             Spacer(Modifier.width(18.dp))
             Column {
                 Text(
-                    if (state.inSchedule) "Hora de descansar" else "Bom descanso!",
+                    when {
+                        byFocus -> "Celular bloqueado para foco"
+                        state.inSchedule -> "Hora de descansar"
+                        else -> "Tudo certo!"
+                    },
                     style = BloqueioType.headline, color = Bloqueio.colors.label,
                     modifier = Modifier.semantics { heading() },
                 )
                 Text(
-                    if (state.inSchedule) "Libera às ${ScheduleWindow.format(end)}" else "Liberando o celular…",
+                    if (state.phoneLocked) "Libera às $endLabel" else "Liberando o celular…",
                     style = BloqueioType.footnote, color = Bloqueio.colors.secondaryLabel,
                 )
                 Spacer(Modifier.height(4.dp))
@@ -316,7 +336,11 @@ private fun PauseAlert(onDismiss: () -> Unit) {
                     PasswordVault.Result.Ok -> {
                         AdminSession.unlock(1)
                         val until = System.currentTimeMillis() + minutes[idx] * 60_000L
-                        RulesRepository.adminUpdate { it.copy(schedule = it.schedule.copy(pausedUntil = until)) }
+                        // Emergência: pausa o descanso e encerra um foco "Bloquear" em andamento.
+                        RulesRepository.adminUpdate {
+                            val f = if (it.focus.level == FocusLevel.LOCK) Focus() else it.focus
+                            it.copy(schedule = it.schedule.copy(pausedUntil = until), focus = f)
+                        }
                         AdminSession.lock()
                         onDismiss()
                     }

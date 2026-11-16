@@ -64,7 +64,7 @@ class GuardAccessibilityService : AccessibilityService() {
                 lastActionAt = now
                 performGlobalAction(GLOBAL_ACTION_HOME)
                 // No descanso, o lugar certo é o Hub (relógio, apps liberados), não a tela de bloqueio.
-                val target = if (verdict.reason == BlockReason.SCHEDULE) {
+                val target = if (verdict.reason == BlockReason.SCHEDULE || GuardService.state().focusLocks) {
                     Intent(this, HubActivity::class.java)
                 } else {
                     Intent(this, BlockActivity::class.java)

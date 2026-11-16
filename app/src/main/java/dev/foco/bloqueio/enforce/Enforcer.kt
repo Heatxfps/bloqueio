@@ -33,6 +33,10 @@ data class EnforceState(
     val inSchedule get() = config.schedule.enabled && config.schedule.pausedUntil <= now &&
         ScheduleWindow.contains(minuteOfDay, config.schedule.startMinute, config.schedule.endMinute)
     val focusLevel get() = if (config.focus.isActive(now)) config.focus.level else FocusLevel.OFF
+    /** Foco "Bloquear": celular travado nos essenciais, como no descanso. */
+    val focusLocks get() = focusLevel == FocusLevel.LOCK
+    /** Celular travado no Hub (descanso ou foco Bloquear). */
+    val phoneLocked get() = inSchedule || focusLocks
 }
 
 /** Lógica pura de decisão (sem Context). Ordem documentada em docs/ARQUITETURA.md. */
@@ -46,6 +50,9 @@ object Enforcer {
         if (s.inSchedule && pkg !in c.packagesOf(RuleType.ESSENTIAL) && pkg !in c.secureFolder) {
             return Verdict.Block(BlockReason.SCHEDULE)
         }
+        if (s.focusLocks && pkg !in c.packagesOf(RuleType.ESSENTIAL) && pkg !in c.secureFolder) {
+            return Verdict.Block(BlockReason.FOCUS)
+        }
         val focus = s.focusLevel
         return when (category) {
             Category.GAME -> when {
@@ -54,7 +61,7 @@ object Enforcer {
                 else -> Verdict.Allow
             }
             Category.SOCIAL -> when {
-                focus == FocusLevel.TOTAL -> Verdict.Block(BlockReason.FOCUS)
+                focus == FocusLevel.TOTAL || focus == FocusLevel.LOCK -> Verdict.Block(BlockReason.FOCUS)
                 focus == FocusLevel.PARTIAL -> Verdict.Partial("Foco parcial: só criar está liberado.")
                 s.socialLeftSec <= 0 -> Verdict.Partial("Cota de redes sociais esgotada.")
                 else -> Verdict.Allow

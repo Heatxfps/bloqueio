@@ -21,10 +21,11 @@ data class Rule(
 )
 
 @Serializable
-enum class FocusLevel { OFF, PARTIAL, TOTAL }
+/** Do mais leve ao mais rígido. LOCK = celular travado nos essenciais (como o descanso). */
+enum class FocusLevel { OFF, PARTIAL, TOTAL, LOCK }
 
 @Serializable
-data class Focus(val level: FocusLevel = FocusLevel.OFF, val until: Long = 0L) {
+data class Focus(val level: FocusLevel = FocusLevel.OFF, val until: Long = 0L, val startedAt: Long = 0L) {
     fun isActive(now: Long) = level != FocusLevel.OFF && until > now
 }
 

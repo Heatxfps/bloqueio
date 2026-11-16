@@ -37,15 +37,15 @@ object RulesRepository {
         )
     }
 
-    /** Iniciar foco ou torná-lo mais rígido é livre; afrouxar exige admin. */
+    /**
+     * Iniciar um foco é livre. Depois de começar, ele não muda até o fim: trocar o nível ou a
+     * duração (para mais ou para menos) exige o admin (docs/funcionalidades/05-foco.md).
+     */
     fun startFocus(level: FocusLevel, minutes: Int) = mutate { c ->
+        require(minutes in 1..(24 * 60)) { "Escolha entre 1 minuto e 24 horas." }
         val now = System.currentTimeMillis()
-        val until = now + minutes * 60_000L
-        val current = c.focus
-        val loosening = current.isActive(now) &&
-            (level.ordinal < current.level.ordinal || until < current.until)
-        if (loosening) AdminSession.require()
-        c.copy(focus = Focus(level, until))
+        if (c.focus.isActive(now)) AdminSession.require()
+        c.copy(focus = Focus(level, now + minutes * 60_000L, startedAt = now))
     }
 
     // ---------- Pasta segura (livre para o usuário) ----------

@@ -12,7 +12,7 @@ App Android de **autocontrole digital** com proteção real: trava a VPN no Tail
 | 2 | Cotas de distração (20 min redes / 20 min jogos) | Contagem em tempo real pelo serviço de acessibilidade. Esgotou: jogos bloqueados; redes sociais em bloqueio **parcial** (Reels, Shorts, Explorar…) | [Cotas](docs/funcionalidades/02-cotas.md) |
 | 3 | Horário de descanso com Hub (ex.: 20:00–04:00) | O celular vira um Hub com relógio, contagem regressiva e só os apps essenciais; notificações e controles rápidos continuam funcionando | [Horário](docs/funcionalidades/03-horario.md) |
 | 4 | Pasta segura / ambiente limpo | Apps abertos pela pasta rodam com Opções do desenvolvedor, depuração USB e Wi‑Fi desligadas; ao sair, tudo volta | [Pasta segura](docs/funcionalidades/04-pasta-segura.md) |
-| 5 | Foco total e parcial | Total: redes + jogos bloqueados. Parcial: jogos bloqueados, redes só com as áreas de **criação** liberadas | [Foco](docs/funcionalidades/05-foco.md) |
+| 5 | Foco parcial, total e bloquear | Parcial: jogos + consumo das redes. Total: redes + jogos. Bloquear: celular no Hub só com essenciais. 15/30/45/60 min ou personalizado; cronômetro e sem troca depois de começar | [Foco](docs/funcionalidades/05-foco.md) |
 | 6 | Impossível desinstalar | Device Owner + `setUninstallBlocked` + bloqueio de reset de fábrica/modo seguro | [Proteção](docs/funcionalidades/06-protecao.md) |
 | 7 | Bloquear qualquer app, mesmo desinstalado | Regras salvas por nome de pacote; reaplicadas quando o app é reinstalado | [Regras](docs/funcionalidades/07-regras.md) |
 | 8 | Admin com senha mestra | PBKDF2, desbloqueio temporário, troca de senha e redefinição por código de recuperação | [Admin](docs/funcionalidades/08-admin.md) |

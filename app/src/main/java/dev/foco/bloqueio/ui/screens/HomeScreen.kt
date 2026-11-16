@@ -141,54 +141,15 @@ fun HomeScreen() {
                     FocusLevel.OFF -> "Desligado"
                     else -> {
                         val t = Instant.ofEpochMilli(config.focus.until).atZone(ZoneId.systemDefault()).toLocalTime()
-                        val n = if (state.focusLevel == FocusLevel.TOTAL) "Total" else "Parcial"
-                        "$n até %02d:%02d".format(t.hour, t.minute)
+                        "Até %02d:%02d".format(t.hour, t.minute)
                     }
                 },
                 showDivider = false,
             )
         }
 
-        // ----- Iniciar foco -----
-        var level by remember { mutableIntStateOf(0) }
-        var duration by remember { mutableIntStateOf(1) }
-        val durations = listOf(25, 60, 120, 240)
-        var confirmFocus by remember { mutableStateOf(false) }
-        GroupedSection(
-            header = "Iniciar foco",
-            footer = (
-                if (level == 0) {
-                    "Parcial: jogos bloqueados; nas redes só Reels, Shorts e feeds ficam bloqueados — criar, postar e mensagens continuam liberados."
-                } else {
-                    "Total: redes sociais e jogos bloqueados por completo."
-                }
-                ) + " Só o admin pode encerrar antes.",
-        ) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                SegmentedControl(listOf("Parcial", "Total"), level, { level = it })
-                SegmentedControl(listOf("25 min", "1 h", "2 h", "4 h"), duration, { duration = it })
-                PrimaryButton("Começar", color = Bloqueio.colors.focusFill) { confirmFocus = true }
-            }
-        }
-        if (confirmFocus) {
-            val total = level == 1
-            val minutes = durations[duration]
-            val until = LocalTime.now().plusMinutes(minutes.toLong())
-            IosAlert(
-                title = if (total) "Começar foco total?" else "Começar foco parcial?",
-                message = "Até %02d:%02d. Só o admin pode encerrar antes.".format(until.hour, until.minute),
-                onDismiss = { confirmFocus = false },
-            ) {
-                TextButtonIos("Começar", color = Bloqueio.colors.focus) {
-                    haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                    confirmFocus = false
-                    runGuarded(context) {
-                        RulesRepository.startFocus(if (total) FocusLevel.TOTAL else FocusLevel.PARTIAL, minutes)
-                    }
-                }
-                TextButtonIos("Cancelar", color = Bloqueio.colors.secondaryLabel) { confirmFocus = false }
-            }
-        }
+        // ----- Foco: escolher (antes) ou cronômetro (durante) -----
+        FocusCard(config.focus)
 
         if (setup.essentialsDone && !setup.allDone) SetupSection(setup, header = "Configuração")
     }
