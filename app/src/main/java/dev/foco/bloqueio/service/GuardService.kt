@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
+import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import android.provider.Settings
@@ -128,6 +129,7 @@ class GuardService : Service() {
                 }
                 syncHub()
                 healAccessibility()
+                ensureLiveNotifications()
                 restoreCleanEnvIfOrphan()
                 refreshNowBar()
             }
@@ -249,6 +251,23 @@ class GuardService : Service() {
         policy.syncSuspended(desired)
     }
 
+    /**
+     * Samsung: a Now Bar só aceita apps de terceiros com "Notif. ao vivo para todos apps"
+     * (Opções do desenvolvedor) ligado. Por baixo é esta chave em Settings.Secure; com
+     * WRITE_SECURE_SETTINGS o app liga sozinho, e religa se o ambiente limpo ou o sistema a zerar.
+     */
+    private fun ensureLiveNotifications() {
+        if (!Build.MANUFACTURER.equals("samsung", ignoreCase = true)) return
+        if (!CleanEnvironment.canWriteSecureSettings(this)) return
+        runCatching {
+            val cr = contentResolver
+            if (Settings.Secure.getInt(cr, NOWBAR_ALL_APPS, 0) != 1) {
+                Settings.Secure.putInt(cr, NOWBAR_ALL_APPS, 1)
+                Log.i("NowBar", "Notif. ao vivo para todos apps ligado")
+            }
+        }
+    }
+
     /** Religa o serviço de acessibilidade se alguém o desativou (requer WRITE_SECURE_SETTINGS). */
     private var a11yStuckSince = 0L
 
@@ -298,6 +317,9 @@ class GuardService : Service() {
     private fun currentState(): EnforceState = state()
 
     companion object {
+        /** Chave do One UI por trás de "Notif. ao vivo para todos apps". */
+        private const val NOWBAR_ALL_APPS = "enable_notification_nowbar_test"
+
         fun start(context: Context) {
             runCatching {
                 context.startForegroundService(Intent(context, GuardService::class.java))
