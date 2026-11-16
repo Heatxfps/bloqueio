@@ -222,7 +222,7 @@ private fun Hub(onFinished: () -> Unit) {
         }
 
         Spacer(Modifier.height(28.dp))
-        Text("APPS LIBERADOS", style = BloqueioType.caption, color = Bloqueio.colors.secondaryLabel)
+        Text("Apps liberados", style = BloqueioType.footnote, fontWeight = FontWeight.SemiBold, color = Bloqueio.colors.secondaryLabel)
         Spacer(Modifier.height(12.dp))
         LazyVerticalGrid(
             columns = GridCells.Fixed(4),
@@ -233,7 +233,7 @@ private fun Hub(onFinished: () -> Unit) {
             if (folder.isNotEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(
-                        "PASTA SEGURA · AMBIENTE LIMPO",
+                        "Pasta segura · ambiente limpo",
                         style = BloqueioType.caption, color = Bloqueio.colors.secondaryLabel,
                         modifier = Modifier.padding(top = 10.dp),
                     )

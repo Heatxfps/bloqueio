@@ -1,5 +1,11 @@
 package dev.foco.bloqueio.ui
 
+import com.kyant.backdrop.backdrops.LayerBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
+import dev.foco.bloqueio.ui.components.liquidGlass
+import androidx.compose.animation.core.Animatable
+import androidx.compose.runtime.LaunchedEffect
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -65,12 +71,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
-import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
 import dev.foco.bloqueio.security.PasswordVault
 import dev.foco.bloqueio.service.GuardService
 import dev.foco.bloqueio.ui.components.MessageBanner
@@ -135,11 +135,12 @@ private fun Tabs(vault: PasswordVault) {
     var selected by rememberSaveable { mutableIntStateOf(0) }
     // Voltar numa aba que não é a Início leva para a Início antes de sair do app.
     BackHandler(enabled = selected != 0) { selected = 0 }
-    val hazeState = rememberHazeState(blurEnabled = LocalGlassEnabled.current)
+    // O conteúdo é gravado numa camada; a barra a refrata (Liquid Glass de verdade).
+    val backdrop = rememberLayerBackdrop()
     val navBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
     Box(Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().hazeSource(hazeState)) {
+        Column(Modifier.fillMaxSize().background(Bloqueio.colors.background).layerBackdrop(backdrop)) {
             // Aviso fixo (sucesso/erro) logo abaixo da barra de status, acima da aba atual.
             Box(Modifier.statusBarsPadding()) { MessageBanner() }
             // As telas reservam espaço no fim para o último item não ficar sob a barra.
@@ -157,7 +158,7 @@ private fun Tabs(vault: PasswordVault) {
         GlassTabBar(
             selected = selected,
             onSelect = { selected = it },
-            hazeState = hazeState,
+            backdrop = backdrop,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
@@ -168,42 +169,13 @@ private fun Tabs(vault: PasswordVault) {
 }
 
 @Composable
-private fun GlassTabBar(selected: Int, onSelect: (Int) -> Unit, hazeState: HazeState, modifier: Modifier) {
+private fun GlassTabBar(selected: Int, onSelect: (Int) -> Unit, backdrop: LayerBackdrop, modifier: Modifier) {
     val c = Bloqueio.colors
-    val dark = isSystemInDarkTheme()
     val shape = RoundedCornerShape(50)
-    val surface = if (LocalGlassEnabled.current) {
-        Modifier.hazeEffect(
-            hazeState,
-            HazeStyle(
-                backgroundColor = c.background,
-                tints = listOf(HazeTint(c.cell.copy(alpha = if (dark) 0.55f else 0.62f))),
-                blurRadius = 24.dp,
-                noiseFactor = 0f,
-                fallbackTint = HazeTint(c.cell),
-            ),
-        )
-    } else {
-        // Sem vidro (Android 11 ou alto contraste): superfície opaca.
-        Modifier.background(c.cell)
-    }
-    BoxWithConstraints(
-        modifier
-            .fillMaxWidth()
-            .shadow(18.dp, shape, ambientColor = Color.Black.copy(alpha = 0.18f), spotColor = Color.Black.copy(alpha = 0.22f))
-            .clip(shape)
-            .then(surface)
-            .border(
-                0.75.dp,
-                Brush.verticalGradient(
-                    listOf(Color.White.copy(alpha = if (dark) 0.22f else 0.75f), Color.White.copy(alpha = 0.04f)),
-                ),
-                shape,
-            ),
-    ) {
+    BoxWithConstraints(modifier.fillMaxWidth().liquidGlass(backdrop, shape)) {
         val tabWidth = maxWidth / tabs.size
         val target = tabWidth * selected
-        // Pílula "líquida": desliza com mola e estica enquanto se move.
+        // Bolha de vidro da seleção: desliza com mola e estica enquanto se move.
         val offset by animateDpAsState(target, spring(dampingRatio = 0.72f, stiffness = 380f), label = "pill")
         val stretch = (abs((offset - target).value) / tabWidth.value).coerceIn(0f, 1f)
         Box(
@@ -212,20 +184,11 @@ private fun GlassTabBar(selected: Int, onSelect: (Int) -> Unit, hazeState: HazeS
                 .width(tabWidth)
                 .fillMaxHeight()
                 .padding(5.dp)
-                .graphicsLayer { scaleX = 1f + stretch * 0.3f }
-                .clip(shape)
-                .background(c.accent.copy(alpha = if (dark) 0.22f else 0.13f)),
-        )
-        // Brilho especular no topo da cápsula.
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.5f)
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Color.White.copy(alpha = if (dark) 0.07f else 0.32f), Color.Transparent),
-                    ),
-                ),
+                .graphicsLayer {
+                    scaleX = 1f + stretch * 0.3f
+                    scaleY = 1f - stretch * 0.08f
+                }
+                .liquidGlass(backdrop, shape, tint = c.label.copy(alpha = 0.08f), bubble = true),
         )
         Row(Modifier.fillMaxSize().selectableGroup()) {
             tabs.forEachIndexed { i, tab ->
@@ -247,8 +210,21 @@ private fun GlassTabBar(selected: Int, onSelect: (Int) -> Unit, hazeState: HazeS
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
+                    val bounce = remember { Animatable(1f) }
+                    LaunchedEffect(isSel) {
+                        if (isSel) {
+                            bounce.snapTo(0.82f)
+                            bounce.animateTo(1f, spring(dampingRatio = 0.42f, stiffness = 500f))
+                        }
+                    }
                     // Ícone decorativo: o rótulo abaixo já é lido pelo TalkBack.
-                    Icon(tab.icon, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
+                    Icon(
+                        tab.icon, contentDescription = null, tint = color,
+                        modifier = Modifier.size(24.dp).graphicsLayer {
+                            scaleX = bounce.value
+                            scaleY = bounce.value
+                        },
+                    )
                     Text(
                         tab.label,
                         style = BloqueioType.caption.copy(fontSize = 11.sp, letterSpacing = 0.sp),

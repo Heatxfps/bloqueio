@@ -85,11 +85,16 @@ fun LargeTitleScaffold(
     title: String,
     modifier: Modifier = Modifier,
     trailing: @Composable () -> Unit = {},
+    /** Campo de cor da camada de conteúdo (ex.: aura das cotas); o vidro das barras o reflete. */
+    aura: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val scroll = rememberScrollState()
     val background = Bloqueio.colors.background
     Box(modifier.fillMaxSize().background(background)) {
+        if (aura != null) {
+            Box(Modifier.graphicsLayer { translationY = -scroll.value * 0.45f }) { aura() }
+        }
         Column(
             Modifier
                 .fillMaxSize()
@@ -131,7 +136,7 @@ fun GroupedSection(
     Column(Modifier.padding(top = 20.dp)) {
         if (header != null) {
             Row(Modifier.padding(start = 16.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(header.uppercase(), style = BloqueioType.caption, color = Bloqueio.colors.secondaryLabel)
+                Text(header, style = BloqueioType.footnote, fontWeight = FontWeight.SemiBold, color = Bloqueio.colors.secondaryLabel)
                 if (locked) {
                     Spacer(Modifier.width(6.dp))
                     LockBadge()
@@ -156,7 +161,7 @@ fun GroupedSection(
 
 /** Quadrado arredondado colorido com ícone branco (estilo Ajustes do iOS). */
 @Composable
-fun IconTile(icon: ImageVector, tint: Color, size: Dp = 29.dp) {
+fun IconTile(icon: ImageVector, tint: Color, size: Dp = 29.dp, glyph: Color = Color.White) {
     val tilt = LocalTilt.current
     val corner = size * 0.24f
     Box(
@@ -184,7 +189,7 @@ fun IconTile(icon: ImageVector, tint: Color, size: Dp = 29.dp) {
                 ),
         )
         Icon(
-            icon, contentDescription = null, tint = Color.White,
+            icon, contentDescription = null, tint = glyph,
             modifier = Modifier
                 .size(size * 0.62f)
                 .graphicsLayer {
@@ -354,7 +359,6 @@ fun PrimaryButton(
             .fillMaxWidth()
             .pressScale(source)
             .heightIn(min = 54.dp)
-            .shadow(if (enabled) 6.dp else 0.dp, CircleShape, ambientColor = color, spotColor = color)
             .clip(CircleShape)
             .background(if (enabled) color else color.copy(alpha = 0.35f))
             .clickable(

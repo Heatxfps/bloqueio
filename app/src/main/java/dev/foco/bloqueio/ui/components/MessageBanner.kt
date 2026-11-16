@@ -1,5 +1,8 @@
 package dev.foco.bloqueio.ui.components
 
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -57,6 +60,10 @@ fun MessageBanner(modifier: Modifier = Modifier) {
                 .padding(start = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (!m.isError) {
+                DrawOnCheck(Bloqueio.colors.successText)
+                Spacer(Modifier.width(10.dp))
+            }
             Text(
                 m.text,
                 style = BloqueioType.callout,
@@ -73,5 +80,31 @@ fun MessageBanner(modifier: Modifier = Modifier) {
                     .padding(horizontal = 16.dp, vertical = 12.dp),
             )
         }
+    }
+}
+
+/** Marca de confirmação que "se desenha" (como o Draw On dos SF Symbols). */
+@Composable
+private fun DrawOnCheck(color: androidx.compose.ui.graphics.Color) {
+    val progress = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(0f) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        progress.animateTo(1f, androidx.compose.animation.core.tween(420, easing = androidx.compose.animation.core.FastOutSlowInEasing))
+    }
+    androidx.compose.foundation.Canvas(androidx.compose.ui.Modifier.size(22.dp)) {
+        val path = androidx.compose.ui.graphics.Path().apply {
+            moveTo(size.width * 0.18f, size.height * 0.52f)
+            lineTo(size.width * 0.42f, size.height * 0.74f)
+            lineTo(size.width * 0.84f, size.height * 0.28f)
+        }
+        val measure = androidx.compose.ui.graphics.PathMeasure().apply { setPath(path, false) }
+        val partial = androidx.compose.ui.graphics.Path()
+        measure.getSegment(0f, measure.length * progress.value, partial, true)
+        drawPath(
+            partial, color,
+            style = androidx.compose.ui.graphics.drawscope.Stroke(
+                width = 2.6.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                join = androidx.compose.ui.graphics.StrokeJoin.Round,
+            ),
+        )
     }
 }

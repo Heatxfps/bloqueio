@@ -96,7 +96,8 @@ fun Modifier.pressScale(source: InteractionSource, pressed: Float = 0.97f): Modi
     val isPressed by source.collectIsPressedAsState()
     val scale by animateFloatAsState(
         if (isPressed) pressed else 1f,
-        spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        // Mola única do app (equivalente à mola padrão do iOS: rápida, quase sem quique).
+        spring(dampingRatio = 0.7f, stiffness = 600f),
         label = "press",
     )
     return this.graphicsLayer {

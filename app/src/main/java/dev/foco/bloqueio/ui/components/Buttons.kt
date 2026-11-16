@@ -123,12 +123,9 @@ fun ChoiceChips(
     tint: Tint = Tint.Accent,
 ) {
     val haptic = LocalHapticFeedback.current
-    val base = tint.base()
-    val fill = when (tint) {
-        Tint.Accent -> Bloqueio.colors.accentFill
-        Tint.Focus -> Bloqueio.colors.focusFill
-        Tint.Danger -> Bloqueio.colors.danger
-    }
+    // Seleção neutra (texto sobre preto/branco): a cor fica para a ação principal (HIG › Branding).
+    val label = Bloqueio.colors.label
+    val fill = label
     Row(
         modifier.fillMaxWidth().selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -141,7 +138,7 @@ fun ChoiceChips(
                     .weight(1f)
                     .pressScale(source, pressed = 0.94f)
                     .clip(CircleShape)
-                    .background(if (isSel) fill else base.copy(alpha = 0.10f))
+                    .background(if (isSel) fill else label.copy(alpha = 0.08f))
                     .selectable(
                         selected = isSel,
                         interactionSource = source,
@@ -160,7 +157,7 @@ fun ChoiceChips(
                 Text(
                     label, style = BloqueioType.callout,
                     fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Medium,
-                    color = if (isSel) Color.White else tint.text(),
+                    color = if (isSel) Bloqueio.colors.background else label,
                     textAlign = TextAlign.Center, maxLines = 1,
                 )
             }

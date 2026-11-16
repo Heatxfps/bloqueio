@@ -1,5 +1,13 @@
 package dev.foco.bloqueio.ui.screens
 
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Animatable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.graphicsLayer
+import dev.foco.bloqueio.ui.components.RollingText
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
@@ -27,7 +35,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import dev.foco.bloqueio.ui.components.ChoiceChips
-import dev.foco.bloqueio.ui.components.Tint
 import dev.foco.bloqueio.ui.theme.pressScale
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
@@ -61,7 +68,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -99,21 +105,30 @@ private val quickMinutes = listOf(15, 30, 45, 60)
  * Sem foco: escolhe o nível e o tempo. Com foco: os controles somem e fica o cronômetro —
  * nada pode ser trocado até o fim (só o admin encerra antes).
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun FocusCard(focus: Focus) {
     val now by rememberNow(1_000)
     val active = focus.isActive(now)
-    AnimatedContent(
-        targetState = active,
-        transitionSpec = { (fadeIn() + scaleIn(initialScale = 0.96f)) togetherWith fadeOut() },
-        label = "foco",
-    ) { running ->
-        if (running) FocusTimer(focus, now) else FocusSetup()
+    // Continuidade: a cápsula "Começar" cresce e vira o cronômetro (HIG › Motion).
+    SharedTransitionLayout {
+        AnimatedContent(
+            targetState = active,
+            transitionSpec = { fadeIn(tween(260, delayMillis = 80)) togetherWith fadeOut(tween(120)) },
+            label = "foco",
+        ) { running ->
+            val morph = Modifier.sharedBounds(
+                rememberSharedContentState("foco-morph"),
+                animatedVisibilityScope = this@AnimatedContent,
+                boundsTransform = { _, _ -> spring(dampingRatio = 0.82f, stiffness = 320f) },
+            )
+            if (running) FocusTimer(focus, now, morph) else FocusSetup(morph)
+        }
     }
 }
 
 @Composable
-private fun FocusSetup() {
+private fun FocusSetup(morph: Modifier) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     var levelIdx by rememberSaveable { mutableIntStateOf(0) }
@@ -145,8 +160,8 @@ private fun FocusSetup() {
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("DURAÇÃO (MIN)", style = BloqueioType.caption, color = Bloqueio.colors.secondaryLabel)
-                ChoiceChips(quickMinutes.map { "$it" } + "Outro", quickIdx, { quickIdx = it }, tint = Tint.Focus)
+                Text("Duração em minutos", style = BloqueioType.footnote, fontWeight = FontWeight.SemiBold, color = Bloqueio.colors.secondaryLabel)
+                ChoiceChips(quickMinutes.map { "$it" } + "Outro", quickIdx, { quickIdx = it })
             }
 
             AnimatedVisibility(visible = isCustom) {
@@ -155,6 +170,7 @@ private fun FocusSetup() {
 
             PrimaryButton(
                 "Começar · ${formatMinutes(total * 60L)}",
+                modifier = morph,
                 color = Bloqueio.colors.focusFill,
                 icon = Icons.Rounded.PlayArrow,
             ) { confirm = true }
@@ -188,15 +204,22 @@ private val modeInfo = listOf(
 @Composable
 private fun ModeTile(icon: ImageVector, name: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val c = Bloqueio.colors
-    val dark = c.background == Color.Black
     val source = remember { MutableInteractionSource() }
     val shape = RoundedCornerShape(18.dp)
+    val bounce = remember { Animatable(1f) }
+    LaunchedEffect(selected) {
+        if (selected) {
+            bounce.snapTo(0.8f)
+            bounce.animateTo(1f, spring(dampingRatio = 0.42f, stiffness = 500f))
+        }
+    }
     Column(
         modifier
             .pressScale(source, pressed = 0.95f)
             .clip(shape)
-            .background(if (selected) c.focus.copy(alpha = if (dark) 0.22f else 0.12f) else c.cellSecondary)
-            .border(if (selected) 2.dp else 0.dp, if (selected) c.focus else Color.Transparent, shape)
+            // Seleção neutra: a cor do foco fica só no Começar e no cronômetro.
+            .background(if (selected) c.label.copy(alpha = 0.10f) else c.cellSecondary)
+            .border(if (selected) 1.5.dp else 0.dp, if (selected) c.label.copy(alpha = 0.6f) else Color.Transparent, shape)
             .selectable(selected, interactionSource = source, indication = null, role = Role.RadioButton, onClick = onClick)
             .heightIn(min = 96.dp)
             .padding(vertical = 14.dp, horizontal = 8.dp),
@@ -206,11 +229,20 @@ private fun ModeTile(icon: ImageVector, name: String, selected: Boolean, modifie
         Box(
             Modifier
                 .size(40.dp)
+                .graphicsLayer {
+                    scaleX = bounce.value
+                    scaleY = bounce.value
+                }
                 .clip(CircleShape)
-                .background(if (selected) c.focusFill else c.gray.copy(alpha = 0.28f)),
+                .background(if (selected) c.label else c.gray.copy(alpha = 0.28f)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
+            val glyph = if (selected) c.background else Color.White
+            if (icon == Icons.Rounded.Lock) {
+                LockGlyph(closed = selected, color = glyph, modifier = Modifier.size(22.dp))
+            } else {
+                Icon(icon, contentDescription = null, tint = glyph, modifier = Modifier.size(22.dp))
+            }
         }
         Spacer(Modifier.height(8.dp))
         Text(
@@ -266,7 +298,7 @@ private fun RoundIconButton(icon: ImageVector, description: String, onClick: () 
 
 /** Cronômetro regressivo grande com anel; substitui os controles enquanto o foco dura. */
 @Composable
-private fun FocusTimer(focus: Focus, now: Long) {
+private fun FocusTimer(focus: Focus, now: Long, morph: Modifier) {
     val left = ((focus.until - now) / 1000).coerceAtLeast(0)
     val totalSec = ((focus.until - (focus.startedAt.takeIf { it > 0 } ?: now)) / 1000).coerceAtLeast(1)
     val fraction by animateFloatAsState((left.toFloat() / totalSec).coerceIn(0f, 1f), label = "restante")
@@ -278,7 +310,7 @@ private fun FocusTimer(focus: Focus, now: Long) {
 
     GroupedSection(header = "Foco", footer = "Só o admin pode encerrar antes (aba Admin).") {
         Column(
-            Modifier.fillMaxWidth().padding(vertical = 24.dp, horizontal = 16.dp),
+            Modifier.fillMaxWidth().then(morph).padding(vertical = 24.dp, horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -290,19 +322,13 @@ private fun FocusTimer(focus: Focus, now: Long) {
                     drawArc(color, -90f, 360f * fraction, false, tl, Size(d, d), style = Stroke(stroke, cap = StrokeCap.Round))
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
+                    // Display leve com números de largura fixa; só os dígitos que mudam rolam.
+                    // O TalkBack lê o resumo, não cada segundo.
+                    RollingText(
                         clock,
-                        // Algarismos de largura fixa: o número não "dança" a cada segundo.
-                        style = BloqueioType.largeTitle.copy(
-                            fontSize = if (h > 0) 40.sp else 48.sp,
-                            fontWeight = FontWeight.Light,
-                            fontFamily = FontFamily.Monospace,
-                        ),
+                        style = BloqueioType.timer.copy(fontSize = if (h > 0) 42.sp else 52.sp),
                         color = Bloqueio.colors.label,
-                        // O TalkBack lê o resumo, não cada segundo.
-                        modifier = Modifier.semantics {
-                            contentDescription = "Faltam ${formatMinutes(left)}"
-                        },
+                        description = "Faltam ${formatMinutes(left)}",
                     )
                     Text(focusName(focus.level), style = BloqueioType.headline, color = color)
                 }
@@ -314,5 +340,40 @@ private fun FocusTimer(focus: Focus, now: Long) {
                 modifier = Modifier.padding(top = 16.dp),
             )
         }
+    }
+}
+
+/**
+ * Cadeado desenhado: a alça desce e fecha quando o modo Bloquear é escolhido (como os símbolos
+ * animados da Apple: o movimento conta o que aconteceu).
+ */
+@Composable
+private fun LockGlyph(closed: Boolean, color: Color, modifier: Modifier = Modifier) {
+    val t by androidx.compose.animation.core.animateFloatAsState(
+        if (closed) 1f else 0f,
+        spring(dampingRatio = 0.55f, stiffness = 420f),
+        label = "cadeado",
+    )
+    androidx.compose.foundation.Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        val stroke = w * 0.13f
+        // Corpo
+        drawRoundRect(
+            color,
+            topLeft = Offset(w * 0.16f, h * 0.46f),
+            size = Size(w * 0.68f, h * 0.46f),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.12f),
+        )
+        // Alça: aberta = deslocada para cima e para a direita
+        val lift = (1f - t) * h * 0.16f
+        val shift = (1f - t) * w * 0.14f
+        val path = androidx.compose.ui.graphics.Path().apply {
+            moveTo(w * 0.32f + shift, h * 0.48f - lift * 0.2f)
+            lineTo(w * 0.32f + shift, h * 0.34f - lift)
+            cubicTo(w * 0.32f + shift, h * 0.08f - lift, w * 0.68f + shift, h * 0.08f - lift, w * 0.68f + shift, h * 0.34f - lift)
+            lineTo(w * 0.68f + shift, h * 0.48f - lift)
+        }
+        drawPath(path, color, style = Stroke(stroke, cap = StrokeCap.Round))
     }
 }

@@ -78,31 +78,26 @@ Fonte do sistema (no Samsung, *SamsungOne*; o equivalente visual do SF Pro). Esc
 - **Ações que o usuário não desfaz sozinho** (iniciar foco) pedem confirmação; remoções comuns oferecem Desfazer.
 - **Trabalho pesado** (PBKDF2, listar apps) fora da thread principal, com progresso visível.
 
-## Movimento e vidro
+## Movimento e vidro (linguagem da Apple)
 
-Duas camadas (HIG › Liquid Glass): **conteúdo** (cards, listas — sempre opacos) e **funcional** (barra de abas, alertas — únicos lugares com vidro).
+Regra de ouro: **a ousadia fica num lugar só.** Vidro só na camada funcional, cor no conteúdo, controles neutros, e elementos que se **transformam** em vez de sumir e aparecer.
 
 | Elemento | Implementação | Detalhes |
 |---|---|---|
-| Barra de abas | Cápsula flutuante, `hazeEffect` (biblioteca Haze) sobre o conteúdo (`hazeSource`) | Desfoque 24 dp, tinta `cell` a 55–62%, borda de luz 0,75 dp, brilho no topo, sombra 18 dp |
-| Seleção da aba | Pílula "líquida" `accent` a 13–22% | Desliza com mola (amortecimento 0,72) e estica até 30% em movimento |
-| Alertas | `FLAG_BLUR_BEHIND` (raio 48) + cartão a 90% | Entram com escala 1,06 → 1 e esmaecimento |
-| Borda de rolagem | Degradê do fundo no topo | Aparece só quando o conteúdo rolou |
-| Anéis de cota (assinatura) | Shader AGSL de "tubo de vidro" (Android 13+) | Enchem com mola ao abrir; luz segue a inclinação; minutos contam junto |
-| Ícones | Camada de brilho + paralaxe pelo sensor de gravidade | Luz desloca 8% do tamanho, símbolo 3% (profundidade) |
-| Toque | `pressScale` (0,97) em botões, segmentos e abas | Mola média |
-| Segmentado | "Polegar" desliza até a opção | Mola, tique de vibração |
-| Regras → detalhe | `AnimatedContent` deslizando na horizontal | Volta pelo mesmo caminho |
-| Tela de bloqueio | Ampulheta gira 180° uma vez | 900 ms, sem loop |
+| Barra de abas | `liquidGlass` (biblioteca `io.github.kyant0:backdrop`) sobre o conteúdo gravado com `layerBackdrop` | **Refração** nas bordas (`lens`, Android 13+), desfoque leve, `vibrancy`, brilho especular, sombra suave |
+| Seleção da aba | Bolha de vidro própria (`bubble = true`) | Mais refração com aberração cromática; desliza com mola e estica em movimento |
+| Aura das cotas | Campo radial rosa/índigo **no conteúdo**, atrás dos anéis | Mais forte quanto mais cota sobra; "respira" em 6 s; o vidro da barra a reflete ao rolar |
+| Começar → cronômetro | `SharedTransitionLayout` + `sharedBounds` | A cápsula cresce e vira o cartão do cronômetro |
+| Números | `RollingText` | Só os dígitos que mudam rolam (ao diminuir, descem de cima) |
+| Símbolos | Ícone da aba e do modo **pulam** ao escolher; **cadeado fecha** no Bloquear; **✓ se desenha** nos avisos de sucesso | Cada animação diz o que aconteceu (HIG › SF Symbols › Animations) |
+| Toque | `pressScale` com a mola única do app (0,7 / 600) | Afunda e volta elástico |
+| Alertas | `FLAG_BLUR_BEHIND` + cartão a 90% | Escala 1,06 → 1 |
 
-**Vibração** (`HapticFeedbackType`): `ToggleOn/Off` nos switches, `SegmentTick` nos segmentados, `Confirm` ao começar foco e desbloquear o Admin, `Reject` em senha errada. Rolagem e troca de aba não vibram.
+**Cor com disciplina:** seleção (modos, pílulas) em neutro — texto sobre fundo invertido. A cor do foco aparece só no **Começar** e no **cronômetro**. Ícones da Início só ganham cor quando indicam estado (VPN protegida, descanso ativo, foco ativo). Sem sombras coloridas.
 
-**Acessibilidade do movimento:**
-- *Remover animações* do Android → animações do Compose ficam instantâneas e a paralaxe é desligada (`LocalReduceMotion`).
-- *Texto de alto contraste* ou Android 11 e anterior → sem vidro, superfícies opacas (`LocalGlassEnabled`).
-- Nenhuma informação depende só de movimento ou cor (ex.: cota zerada mostra "Esgotada").
+**Tipografia:** Inter (OFL, `res/font/inter_variable.ttf`, licença em `docs/licencas/`) no lugar da SF, que só pode ser usada em aparelhos Apple. Duas famílias pelo eixo óptico: `InterText` (opsz 14) e `InterDisplay` (opsz 32). Espaçamento negativo crescente com o tamanho (−0,022 em no título grande), números de largura fixa (`tnum`) em contagens. Cabeçalhos de seção em letra normal semibold (sem caixa alta).
 
-**Por que shader e não um motor 3D:** Three.js é para navegador. O equivalente no Android é o Filament/SceneView (+5–8 MB, mais bateria). Os anéis com shader AGSL dão aparência de objeto 3D iluminado sem peso no APK.
+**Acessibilidade do movimento:** *Remover animações* deixa tudo instantâneo e desliga a paralaxe; *Texto de alto contraste* ou Android 12- desligam o vidro (superfícies opacas). Nada depende só de cor ou movimento.
 
 ## Ícones
 

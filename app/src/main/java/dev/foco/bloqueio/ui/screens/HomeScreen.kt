@@ -1,5 +1,12 @@
 package dev.foco.bloqueio.ui.screens
 
+import dev.foco.bloqueio.ui.components.RollingText
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -85,7 +92,17 @@ fun HomeScreen() {
     val setup = rememberSetupStatus()
     val haptic = LocalHapticFeedback.current
 
-    LargeTitleScaffold("Bloqueio") {
+    val sTotalAura = config.quotas.socialMinutes * 60f
+    val gTotalAura = config.quotas.gamesMinutes * 60f
+    LargeTitleScaffold(
+        "Bloqueio",
+        aura = {
+            QuotaAura(
+                social = if (sTotalAura > 0) state.socialLeftSec / sTotalAura else 0f,
+                games = if (gTotalAura > 0) state.gamesLeftSec / gTotalAura else 0f,
+            )
+        },
+    ) {
         // Sem acessibilidade/notificações o app não funciona: configuração vem primeiro.
         if (!setup.essentialsDone) SetupSection(setup)
 
@@ -117,7 +134,8 @@ fun HomeScreen() {
         GroupedSection(header = "Agora") {
             Cell(
                 title = "VPN Tailscale",
-                leading = { IconTile(Icons.Rounded.Shield, Bloqueio.colors.success) /* estado, não ação: azul fica só para o que é clicável */ },
+                // Cor só quando há estado; neutro no resto (cor com significado, HIG › Color).
+                leading = { StatusTile(Icons.Rounded.Shield, Bloqueio.colors.success, active = vpn == VpnState.PROTECTED) },
                 value = vpn.label,
                 valueColor = when (vpn) {
                     VpnState.PROTECTED -> Bloqueio.colors.successText
@@ -130,13 +148,13 @@ fun HomeScreen() {
             Cell(
                 title = "Horário de descanso",
                 subtitle = if (sch.enabled) "${ScheduleWindow.format(sch.startMinute)} – ${ScheduleWindow.format(sch.endMinute)}" else "Desligado",
-                leading = { IconTile(Icons.Rounded.Bedtime, Bloqueio.colors.games) },
+                leading = { StatusTile(Icons.Rounded.Bedtime, Bloqueio.colors.games, active = state.inSchedule) },
                 value = if (state.inSchedule) "Ativo" else null,
                 valueColor = Bloqueio.colors.games,
             )
             Cell(
                 title = "Foco",
-                leading = { IconTile(Icons.Rounded.DoNotDisturbOn, Bloqueio.colors.focus) },
+                leading = { StatusTile(Icons.Rounded.DoNotDisturbOn, Bloqueio.colors.focus, active = state.focusLevel != FocusLevel.OFF) },
                 value = when (state.focusLevel) {
                     FocusLevel.OFF -> "Desligado"
                     else -> {
@@ -157,21 +175,54 @@ fun HomeScreen() {
 
 @Composable
 private fun QuotaLine(title: String, secondsLeft: Long, color: Color) {
-    // Conta a partir de zero ao abrir a tela (acompanha o enchimento dos anéis).
-    val shown = remember { Animatable(0f) }
-    LaunchedEffect(secondsLeft) {
-        shown.animateTo(secondsLeft.toFloat(), tween(durationMillis = 700, easing = FastOutSlowInEasing))
-    }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Spacer(Modifier.size(10.dp).clip(CircleShape).background(color))
         Spacer(Modifier.width(8.dp))
         Column {
             Text(title, style = BloqueioType.footnote, color = Bloqueio.colors.secondaryLabel)
             // Cota zerada também em texto: a informação não depende só do anel/cor.
-            Text(
-                if (secondsLeft <= 0) "Esgotada" else formatMinutes(shown.value.toLong()),
+            RollingText(
+                if (secondsLeft <= 0) "Esgotada" else formatMinutes(secondsLeft),
                 style = BloqueioType.title2, color = Bloqueio.colors.label,
             )
         }
+    }
+}
+
+@Composable
+private fun StatusTile(icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, active: Boolean) {
+    if (active) IconTile(icon, color) else IconTile(icon, Bloqueio.colors.cellSecondary, glyph = Bloqueio.colors.secondaryLabel)
+}
+
+/**
+ * Aura das cotas: a cor vive no conteúdo, atrás dos anéis (como no app Fitness), e o vidro
+ * da barra a reflete ao rolar. Mais forte quanto mais cota sobra; respira devagar.
+ */
+@Composable
+private fun QuotaAura(social: Float, games: Float) {
+    val c = Bloqueio.colors
+    val dark = c.background == Color.Black
+    val breathe = rememberInfiniteTransition(label = "aura")
+    val pulse by breathe.animateFloat(
+        initialValue = 0.94f, targetValue = 1.06f,
+        animationSpec = infiniteRepeatable(tween(6_000, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "respira",
+    )
+    val strength = if (dark) 0.42f else 0.26f
+    androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(520.dp)) {
+        val w = size.width
+        fun glow(center: Offset, radius: Float, color: Color, amount: Float) {
+            drawCircle(
+                Brush.radialGradient(
+                    listOf(color.copy(alpha = strength * (0.35f + 0.65f * amount)), Color.Transparent),
+                    center = center, radius = radius,
+                ),
+                radius = radius, center = center,
+            )
+        }
+        glow(Offset(w * 0.18f, 150.dp.toPx()), 260.dp.toPx() * pulse, c.social, social.coerceIn(0f, 1f))
+        glow(Offset(w * 0.86f, 210.dp.toPx()), 240.dp.toPx() * (2f - pulse), c.games, games.coerceIn(0f, 1f))
+        // Esvanece para o fundo: o resto da tela continua neutro.
+        drawRect(Brush.verticalGradient(0.55f to Color.Transparent, 1f to c.background))
     }
 }

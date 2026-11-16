@@ -11,7 +11,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
+import androidx.compose.ui.unit.em
+import dev.foco.bloqueio.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -96,15 +102,41 @@ val DarkColors = BloqueioColors(
     dangerTintText = Color(0xFFFF8A80), // 6,06:1
 )
 
-/** Escala tipográfica do iOS. */
+/**
+ * Inter (licença OFL, docs/licencas) no lugar da SF, que só pode ser usada em aparelhos Apple.
+ * Duas famílias pelo eixo óptico "opsz", como a SF Text/Display: textos (14) e títulos (32).
+ */
+private fun inter(opsz: Float) = FontFamily(
+    listOf(300, 400, 500, 600, 700).map { w ->
+        Font(
+            R.font.inter_variable,
+            weight = FontWeight(w),
+            variationSettings = FontVariation.Settings(
+                FontVariation.weight(w),
+                FontVariation.Setting("opsz", opsz),
+            ),
+        )
+    },
+)
+
+val InterText = inter(14f)
+val InterDisplay = inter(32f)
+
+/**
+ * Escala do iOS com espaçamento por tamanho (a SF aperta as letras nos tamanhos grandes;
+ * os valores em em são o equivalente para a Inter). Números de largura fixa ("tnum") onde
+ * há contagem, para os dígitos não "dançarem".
+ */
 object BloqueioType {
-    val largeTitle = TextStyle(fontSize = 34.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.37.sp)
-    val title2 = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Bold)
-    val headline = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-    val body = TextStyle(fontSize = 17.sp)
-    val callout = TextStyle(fontSize = 16.sp)
-    val footnote = TextStyle(fontSize = 13.sp)
-    val caption = TextStyle(fontSize = 12.sp, letterSpacing = 0.4.sp)
+    val largeTitle = TextStyle(fontFamily = InterDisplay, fontSize = 34.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.022).em)
+    val title2 = TextStyle(fontFamily = InterDisplay, fontSize = 22.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.017).em, fontFeatureSettings = "tnum")
+    val headline = TextStyle(fontFamily = InterText, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.012).em)
+    val body = TextStyle(fontFamily = InterText, fontSize = 17.sp, letterSpacing = (-0.011).em)
+    val callout = TextStyle(fontFamily = InterText, fontSize = 16.sp, letterSpacing = (-0.009).em)
+    val footnote = TextStyle(fontFamily = InterText, fontSize = 13.sp, letterSpacing = (-0.003).em)
+    val caption = TextStyle(fontFamily = InterText, fontSize = 12.sp)
+    /** Cronômetro e relógio grandes: display leve com números de largura fixa. */
+    val timer = TextStyle(fontFamily = InterDisplay, fontWeight = FontWeight.Light, letterSpacing = (-0.02).em, fontFeatureSettings = "tnum")
 }
 
 object Spacing {
@@ -152,6 +184,16 @@ fun BloqueioTheme(content: @Composable () -> Unit) {
         LocalGlassEnabled provides glass,
         LocalTilt provides tilt,
     ) {
-        MaterialTheme(colorScheme = scheme, content = content)
+        MaterialTheme(
+            colorScheme = scheme,
+            typography = Typography().let { t ->
+                t.copy(
+                    bodyLarge = t.bodyLarge.copy(fontFamily = InterText),
+                    bodyMedium = t.bodyMedium.copy(fontFamily = InterText),
+                    labelLarge = t.labelLarge.copy(fontFamily = InterText),
+                )
+            },
+            content = content,
+        )
     }
 }
