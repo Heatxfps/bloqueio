@@ -52,11 +52,12 @@ linha de contexto embaixo.
 
 ## Requisito do Samsung (só para o foco)
 
-A Now Bar **não liga sozinha** para apps de fora da Samsung. É preciso ativar uma vez:
+A Now Bar só aceita apps de fora da Samsung com **Opções do desenvolvedor › Notif. ao vivo para
+todos apps** (*Live notifications for all apps*) ligado. Por baixo, é a chave
+`enable_notification_nowbar_test` em `Settings.Secure`.
 
-**Configurações › Opções do desenvolvedor › Notif. ao vivo para todos apps** (em inglês,
-*Live notifications for all apps*).
-
-O app pede a promoção, mas a decisão é do sistema, e esse interruptor é o que libera.
+O Bloqueio liga essa chave **sozinho** (graças ao `WRITE_SECURE_SETTINGS` dado na instalação) e
+confere a cada 10 s: se o ambiente limpo da pasta segura, uma atualização do sistema ou alguém a
+desligar, ele religa. Só roda em aparelhos Samsung.
 
 Sem isso, o foco aparece normalmente na gaveta, com cronômetro e barra.
