@@ -12,6 +12,7 @@ import android.provider.Settings
 import androidx.core.content.ContextCompat
 import dev.foco.bloqueio.admin.PolicyManager
 import dev.foco.bloqueio.data.AppCatalog
+import dev.foco.bloqueio.data.FocusLevel
 import dev.foco.bloqueio.data.RulesRepository
 import dev.foco.bloqueio.enforce.Category
 import dev.foco.bloqueio.enforce.EnforceState
@@ -91,6 +92,7 @@ class GuardService : Service() {
             }
         }
         scope.launch { loop() }
+        scope.launch { liveTicker() }
         scope.launch { watchCleanEnvironment() }
         scope.launch {
             while (isActive) {
@@ -120,6 +122,7 @@ class GuardService : Service() {
             runCatching {
                 RulesRepository.expireFocusIfNeeded(now)
                 countUsage(elapsed)
+                lastCountAt = now
                 if (now - lastSuspendSync > 30_000) {
                     applyPolicies()
                     lastSuspendSync = now
@@ -133,8 +136,28 @@ class GuardService : Service() {
         }
     }
 
+    /** Último momento em que o uso foi somado às cotas (o ciclo soma de 10 em 10 s). */
+    @Volatile private var lastCountAt = System.currentTimeMillis()
+
     private fun refreshNowBar() {
-        NowBarNotifier.update(this, currentState(), monitor.state.value, inUse())
+        val use = inUse()
+        var s = currentState()
+        // Entre um ciclo e outro, desconta ao vivo o tempo do app aberto: os segundos andam de 1 em 1.
+        if (use != null) {
+            val extra = ((System.currentTimeMillis() - lastCountAt) / 1000).coerceIn(0, 30)
+            s = if (use.category == Category.SOCIAL) s.copy(usedSocialSec = s.usedSocialSec + extra)
+            else s.copy(usedGamesSec = s.usedGamesSec + extra)
+        }
+        NowBarNotifier.update(this, s, monitor.state.value, use)
+    }
+
+    /** Com rede social ou jogo aberto, a Now Bar atualiza a cada segundo (min:seg no título). */
+    private suspend fun liveTicker() {
+        while (scope.isActive) {
+            delay(1_000)
+            val s = currentState()
+            if (s.focusLevel == FocusLevel.OFF && !s.phoneLocked && inUse() != null) runCatching { refreshNowBar() }
+        }
     }
 
     /** Rede social ou jogo aberto agora, com a tela ligada (é quando a cota desce). */

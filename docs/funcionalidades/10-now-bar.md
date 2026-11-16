@@ -4,31 +4,72 @@ A notificação contínua do Bloqueio muda conforme o momento. No Android 16+ el
 a **Live Update** (`android.requestPromotedOngoing` + `ProgressStyle`). No One UI 8+ isso a
 leva à **Now Bar** da tela de bloqueio e ao chip da barra de status.
 
-Código: `notify/NowBarNotifier.kt` (escolha do cartão) e `service/GuardService.kt` (quando atualizar).
+Código: `notify/NowBarNotifier.kt` (escolha e desenho do cartão) e `service/GuardService.kt`
+(quando atualizar).
+
+## Gramática comum
+
+Todos os cartões seguem a mesma estrutura, como uma Live Activity
+(HIG › Live Activities: "Focus on important information that people need to see at a glance").
+
+| Parte | Papel |
+|---|---|
+| **Título** | O que está valendo agora, em poucas palavras |
+| **Texto** | Uma linha de contexto (até quando, o que está bloqueado) |
+| **Chip** | O valor vivo: cronômetro quando há prazo; senão, um texto curto |
+| **Barra** | Tempo. O símbolo do cartão anda na ponta, e o destino fica no fim |
+| **Cor** | Rosa = redes · Índigo = jogos e noite · Roxo = foco · Laranja = exceção temporária · Vermelho = falha |
 
 ## Cartões, do mais urgente para o mais calmo
 
-| # | Quando | Título | Chip | Barra |
-|---|---|---|---|---|
-| 1 | Foco ativo | Foco parcial / Foco total / Celular bloqueado | cronômetro até o fim | tempo decorrido do foco (roxo) |
-| 2 | Horário de descanso | Hora de descansar | cronômetro até a liberação | noite decorrida (índigo) |
-| 2b | Pausa de emergência no descanso | Descanso pausado | cronômetro até o bloqueio voltar | — |
-| 3 | Servidor da VPN caiu (failover) | Servidor fora do ar | "VPN" | — |
-| 4 | Admin destravado | Admin liberado | cronômetro até travar | tempo restante (laranja) |
-| 5 | Rede social ou jogo aberto | Nome do app | cronômetro da cota descendo | cota restante (rosa/índigo) |
-| 5b | Idem, mas a cota acabou | Cota de redes esgotada | "0m" | vazia |
-| 6 | Faltam menos de 15 min para o descanso | Descanso em breve | cronômetro até começar | 15 min |
-| 7 | Nada acontecendo | Redes sociais → Jogos → Proteção ativa (alterna a cada 20 s) | "12m" / "OK" | cota restante |
+### 1 · Foco ativo
+- Título: **Foco total** / **Foco parcial** / **Celular bloqueado**.
+- Texto: "Até 15:30 · redes e jogos bloqueados".
+- Chip: cronômetro regressivo até o fim.
+- Barra roxa, que enche do início ao fim do foco. O símbolo do modo (alvo ou cadeado) anda na ponta.
 
-Cada cartão tem o próprio ícone (balão, controle, lua, cadeado, alerta), e é ele que aparece no chip.
+### 2 · Descanso / pausa de emergência
+- **Hora de descansar**: "Só os essenciais até as 04:00", com cronômetro até a liberação e barra índigo da noite.
+- **Descanso pausado**: "O bloqueio volta às 20:45", com cronômetro até o bloqueio voltar. A barra
+  laranja vai do momento da pausa (`Schedule.pausedAt`) até o fim, com um cadeado aberto andando
+  em direção à lua.
+
+### 3 · Servidor fora do ar
+- Em vermelho: "A VPN foi desligada para a internet não cair. Volta sozinha." O chip mostra "VPN".
+
+### 4 · Admin liberado
+- "Regras editáveis até as 15:12", com cronômetro até travar. A barra laranja esvazia.
+
+### 5 · Descanso em 15 min
+- Título: **Descanso às 20:00**. Texto: "Termine o que está fazendo. Depois, só os essenciais."
+- Chip: cronômetro até o início.
+- Barra índigo de 15 min: a lua anda até o cadeado no fim.
+
+### 6 · Cotas (o principal)
+As duas cotas ficam num cartão só, em **min:seg**:
+
+```
+Redes 12:34  ·  Jogos 08:10
+Nada descontando · VPN protegida · descanso às 20:00
+[■■■■■■■■□□□|■■■■■□□□□□□]   chip: 8:10
+  rosa        índigo
+```
+
+- Barra: dois trechos lado a lado, cada um do tamanho da sua cota. A cor cheia é o que sobra,
+  e a apagada é o que já foi usado. Uma marca branca separa os dois.
+- **Parado** (nenhum app de cota aberto): o chip mostra, em min:seg, a cota mais perto de acabar.
+- **Com rede social ou jogo aberto**: só essa cota desce. O chip vira cronômetro e o ícone muda
+  para balão (redes) ou controle (jogos). O texto diz "Instagram está usando a cota de redes".
+  O título atualiza a cada segundo, e entre os ciclos de 10 s o serviço desconta o tempo ao vivo.
+- Cota zerada: "Redes esgotada".
 
 ## Quando a barra é atualizada
 
-- A cada 10 s, no ciclo do serviço (é isso que faz o rodízio do cartão 7 andar).
-- Na hora em que: o app em primeiro plano muda, a configuração muda (foco iniciado,
-  pausa, cotas), o admin destrava, o estado da VPN muda.
-- Os cronômetros são do próprio sistema (`setUsesChronometer` + `setChronometerCountDown`):
-  os segundos andam sem o app precisar notificar a cada segundo.
+- A cada 10 s, no ciclo do serviço.
+- A cada 1 s, enquanto uma rede social ou um jogo está aberto (fora de foco e de descanso).
+- Na hora em que: o app em primeiro plano muda, a configuração muda (foco iniciado, pausa,
+  cotas), o admin destrava, o estado da VPN muda.
+- Os cronômetros são do próprio sistema (`setUsesChronometer` + `setChronometerCountDown`).
 
 ## Requisito do Samsung
 

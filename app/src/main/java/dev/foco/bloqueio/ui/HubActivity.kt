@@ -339,7 +339,7 @@ private fun PauseAlert(onDismiss: () -> Unit) {
                         // Emergência: pausa o descanso e encerra um foco "Bloquear" em andamento.
                         RulesRepository.adminUpdate {
                             val f = if (it.focus.level == FocusLevel.LOCK) Focus() else it.focus
-                            it.copy(schedule = it.schedule.copy(pausedUntil = until), focus = f)
+                            it.copy(schedule = it.schedule.copy(pausedUntil = until, pausedAt = System.currentTimeMillis()), focus = f)
                         }
                         AdminSession.lock()
                         onDismiss()

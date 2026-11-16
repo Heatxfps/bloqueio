@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
 import dev.foco.bloqueio.R
@@ -25,13 +26,12 @@ import java.time.ZoneId
  * Notificação viva do app. No Android 16+ vira Live Update e é promovida para a Now Bar
  * (One UI 8+). Ela muda conforme o momento, do mais urgente para o mais calmo:
  *
- * 1. Foco ativo: cronômetro regressivo até o fim.
- * 2. Descanso: cronômetro até a liberação (ou até o fim da pausa de emergência).
+ * 1. Foco ativo: cronômetro e barra até o fim.
+ * 2. Descanso (ou pausa de emergência): cronômetro até a liberação (ou até o bloqueio voltar).
  * 3. Servidor fora: aviso de que a VPN foi desligada.
  * 4. Admin liberado: cronômetro até travar de novo.
- * 5. Usando rede social ou jogo: a cota descendo ao vivo (ou "esgotada").
- * 6. Descanso começando em até 15 min: contagem até lá.
- * 7. Sem nada acontecendo: alterna redes → jogos → proteção a cada 20 s.
+ * 5. Descanso em até 15 min: contagem até lá.
+ * 6. O principal: redes e jogos num cartão só, em min:seg.
  *
  * Especificação em docs/funcionalidades/10-now-bar.md.
  */
@@ -46,10 +46,7 @@ object NowBarNotifier {
     private const val PURPLE = 0xFFBF5AF2.toInt()
     private const val ORANGE = 0xFFFF9F0A.toInt()
     private const val RED = 0xFFFF453A.toInt()
-    private const val GREEN = 0xFF30D158.toInt()
 
-    /** Quanto tempo cada cartão fica antes de alternar, quando nada está acontecendo. */
-    private const val ROTATE_MS = 20_000L
     private const val PRE_REST_MIN = 15
 
     /** App de cota aberto agora (rede social ou jogo). */
@@ -97,7 +94,11 @@ object NowBarNotifier {
 
     // ------------------------------------------------------------------ cartões
 
-    /** Um estado da Now Bar. [countdownTo] liga o cronômetro regressivo (o chip mostra o tempo). */
+    /**
+     * Um estado da Now Bar. Gramática comum a todos (docs/funcionalidades/10-now-bar.md):
+     * título = o que está valendo; texto = uma linha de contexto; chip = o valor vivo
+     * (cronômetro quando [countdownTo] existe); barra = tempo, com o símbolo do cartão andando.
+     */
     private data class Card(
         val icon: Int,
         val title: String,
@@ -105,10 +106,17 @@ object NowBarNotifier {
         val color: Int,
         val chip: String? = null,
         val countdownTo: Long? = null,
+        /** Barra simples: [progress] de [max], preenchida com [color]. */
         val max: Int = 0,
         val progress: Int = 0,
-        /** Marca (ex.: divisão entre redes e jogos), em unidades de [max]. */
-        val point: Int? = null,
+        /** Barra em trechos (cor própria por trecho); substitui max/progress. */
+        val segments: List<Pair<Int, Int>>? = null,
+        /** Marcas na barra (posição, cor), nas mesmas unidades dos trechos. */
+        val points: List<Pair<Int, Int>> = emptyList(),
+        /** Símbolo que anda na ponta do progresso. */
+        val tracker: Int? = null,
+        /** Símbolo no fim da barra (para onde o tempo está indo). */
+        val endIcon: Int? = null,
     )
 
     private fun pick(s: EnforceState, vpn: VpnState, inUse: InUse?): Card {
@@ -116,44 +124,44 @@ object NowBarNotifier {
         val cfg = s.config
         val sched = cfg.schedule
 
-        // 1. Foco
+        // 1. Foco ativo: cronômetro + barra que avança até o fim, com o símbolo do modo andando.
         if (s.focusLevel != FocusLevel.OFF) {
             val f = cfg.focus
             val start = if (f.startedAt in 1 until f.until) f.startedAt else now
-            val (title, icon) = when (s.focusLevel) {
-                FocusLevel.LOCK -> "Celular bloqueado" to R.drawable.ic_stat_lock
-                FocusLevel.TOTAL -> "Foco total" to R.drawable.ic_stat_focus
-                else -> "Foco parcial" to R.drawable.ic_stat_focus
-            }
-            val extra = when (s.focusLevel) {
-                FocusLevel.LOCK -> "Só os essenciais funcionam"
-                FocusLevel.TOTAL -> "Redes e jogos bloqueados"
-                else -> "Nas redes, só criar"
+            val (title, icon, extra) = when (s.focusLevel) {
+                FocusLevel.LOCK -> Triple("Celular bloqueado", R.drawable.ic_stat_lock, "só os essenciais")
+                FocusLevel.TOTAL -> Triple("Foco total", R.drawable.ic_stat_focus, "redes e jogos bloqueados")
+                else -> Triple("Foco parcial", R.drawable.ic_stat_focus, "nas redes, só criar")
             }
             return Card(
-                icon, title, "$extra · termina às ${hhmm(f.until)}", PURPLE,
+                icon, title, "Até ${hhmm(f.until)} · $extra", PURPLE,
                 countdownTo = f.until,
                 max = seconds(f.until - start), progress = seconds(now - start),
+                tracker = icon,
             )
         }
 
-        // 2. Descanso (ou pausa de emergência dentro dele)
+        // 2. Descanso, ou a pausa de emergência dentro dele.
         val inWindow = sched.enabled && ScheduleWindow.contains(s.minuteOfDay, sched.startMinute, sched.endMinute)
         if (inWindow) {
-            val end = nextAt(sched.endMinute, now)
             if (sched.pausedUntil > now) {
+                val from = sched.pausedAt.takeIf { it in 1 until sched.pausedUntil } ?: now
                 return Card(
                     R.drawable.ic_stat_moon, "Descanso pausado",
                     "O bloqueio volta às ${hhmm(sched.pausedUntil)}", ORANGE,
                     countdownTo = sched.pausedUntil,
+                    max = seconds(sched.pausedUntil - from), progress = seconds(now - from),
+                    tracker = R.drawable.ic_stat_lock_open, endIcon = R.drawable.ic_stat_moon,
                 )
             }
+            val end = nextAt(sched.endMinute, now)
             val length = windowMinutes(sched.startMinute, sched.endMinute) * 60_000L
             return Card(
                 R.drawable.ic_stat_moon, "Hora de descansar",
                 "Só os essenciais até as ${ScheduleWindow.format(sched.endMinute)}", INDIGO,
                 countdownTo = end,
                 max = seconds(length), progress = seconds(length - (end - now)),
+                tracker = R.drawable.ic_stat_moon,
             )
         }
 
@@ -177,83 +185,84 @@ object NowBarNotifier {
             )
         }
 
-        // 5. Usando um app de cota agora
-        if (inUse != null) {
-            val social = inUse.category == Category.SOCIAL
-            val left = if (social) s.socialLeftSec else s.gamesLeftSec
-            val total = (if (social) cfg.quotas.socialMinutes else cfg.quotas.gamesMinutes) * 60
-            val kind = if (social) "redes sociais" else "jogos"
-            val icon = if (social) R.drawable.ic_stat_social else R.drawable.ic_stat_game
-            val color = if (social) PINK else INDIGO
-            return if (left > 0) {
-                Card(
-                    icon, inUse.label, "Cota de $kind descendo · restam ${minutes(left)} min", color,
-                    countdownTo = now + left * 1000,
-                    max = total.coerceAtLeast(1), progress = left.toInt(),
-                )
-            } else {
-                Card(
-                    icon, "Cota de $kind esgotada",
-                    if (social) "Reels, Shorts e feeds bloqueados até amanhã" else "Jogos bloqueados até amanhã",
-                    color, chip = "0m", max = 1, progress = 0,
-                )
-            }
-        }
-
-        // 6. Descanso começando
+        // 5. Descanso em até 15 min: a barra enche até o cadeado no fim.
         if (sched.enabled) {
             val start = nextAt(sched.startMinute, now)
-            val minsToStart = ((start - now) / 60_000).toInt()
-            if (minsToStart < PRE_REST_MIN) {
+            if (start - now < PRE_REST_MIN * 60_000L) {
                 return Card(
-                    R.drawable.ic_stat_moon, "Descanso em breve",
-                    "Às ${ScheduleWindow.format(sched.startMinute)} só os essenciais funcionam", INDIGO,
+                    R.drawable.ic_stat_moon, "Descanso às ${ScheduleWindow.format(sched.startMinute)}",
+                    "Termine o que está fazendo. Depois, só os essenciais.", INDIGO,
                     countdownTo = start,
-                    max = PRE_REST_MIN * 60, progress = seconds(start - now),
+                    max = PRE_REST_MIN * 60, progress = PRE_REST_MIN * 60 - seconds(start - now),
+                    tracker = R.drawable.ic_stat_moon, endIcon = R.drawable.ic_stat_lock,
                 )
             }
         }
 
-        // 7. Rodízio calmo: redes → jogos → proteção
+        // 6. O principal: as duas cotas num cartão só.
+        return quotaCard(s, vpn, inUse)
+    }
+
+    /**
+     * Redes e jogos juntos, em min:seg. Só uma cota desce por vez (a do app aberto): ela ganha o
+     * cronômetro no chip e a cor do ícone; parada, o chip mostra a que está mais perto de acabar.
+     * A barra tem os dois trechos lado a lado: cor cheia = o que sobra, cor apagada = o que já foi.
+     */
+    private fun quotaCard(s: EnforceState, vpn: VpnState, inUse: InUse?): Card {
+        val cfg = s.config
         val socialTotal = cfg.quotas.socialMinutes * 60
         val gamesTotal = cfg.quotas.gamesMinutes * 60
-        val rotation = buildList {
-            if (socialTotal > 0) add(
-                Card(
-                    R.drawable.ic_stat_social, "Redes sociais",
-                    quotaText(s.socialLeftSec, cfg.quotas.socialMinutes), PINK,
-                    chip = "${minutes(s.socialLeftSec)}m",
-                    max = socialTotal, progress = s.socialLeftSec.toInt(),
-                ),
-            )
-            if (gamesTotal > 0) add(
-                Card(
-                    R.drawable.ic_stat_game, "Jogos",
-                    quotaText(s.gamesLeftSec, cfg.quotas.gamesMinutes), INDIGO,
-                    chip = "${minutes(s.gamesLeftSec)}m",
-                    max = gamesTotal, progress = s.gamesLeftSec.toInt(),
-                ),
-            )
-            add(protectionCard(s, vpn))
-        }
-        return rotation[((now / ROTATE_MS) % rotation.size).toInt()]
-    }
+        val socialLeft = s.socialLeftSec.toInt().coerceIn(0, socialTotal)
+        val gamesLeft = s.gamesLeftSec.toInt().coerceIn(0, gamesTotal)
 
-    private fun protectionCard(s: EnforceState, vpn: VpnState): Card {
-        val sched = s.config.schedule
-        val rest = if (sched.enabled) " · descanso às ${ScheduleWindow.format(sched.startMinute)}" else ""
-        val ok = vpn == VpnState.PROTECTED || vpn == VpnState.DISABLED
+        fun part(name: String, left: Int, total: Int) = when {
+            total <= 0 -> null
+            left <= 0 -> "$name esgotada"
+            else -> "$name ${mmss(left.toLong())}"
+        }
+        val title = listOfNotNull(part("Redes", socialLeft, socialTotal), part("Jogos", gamesLeft, gamesTotal))
+            .joinToString("  ·  ").ifEmpty { "Sem cotas" }
+
+        val active = inUse?.takeIf {
+            (it.category == Category.SOCIAL && socialLeft > 0) || (it.category == Category.GAME && gamesLeft > 0)
+        }
+        val social = active?.category == Category.SOCIAL
+        val rest = if (cfg.schedule.enabled) " · descanso às ${ScheduleWindow.format(cfg.schedule.startMinute)}" else ""
+        val text = when {
+            active != null -> "${active.label} está usando a cota de ${if (social) "redes" else "jogos"}"
+            vpn == VpnState.PROTECTED -> "Nada descontando · VPN protegida$rest"
+            else -> "Nada descontando · VPN ${vpn.label.lowercase()}$rest"
+        }
+
+        val segments = buildList {
+            if (socialTotal > 0) {
+                add(socialLeft to PINK)
+                add(socialTotal - socialLeft to faded(PINK))
+            }
+            if (gamesTotal > 0) {
+                add(gamesLeft to INDIGO)
+                add(gamesTotal - gamesLeft to faded(INDIGO))
+            }
+        }.filter { it.first > 0 }
+        val divider = if (socialTotal > 0 && gamesTotal > 0) listOf(socialTotal to Color.WHITE) else emptyList()
+
+        if (active != null) {
+            val left = if (social) socialLeft else gamesLeft
+            return Card(
+                if (social) R.drawable.ic_stat_social else R.drawable.ic_stat_game, title, text,
+                if (social) PINK else INDIGO,
+                countdownTo = s.now + left * 1000L,
+                segments = segments, points = divider,
+            )
+        }
+        // Parado: o chip mostra a cota mais perto de acabar (entre as que ainda têm tempo).
+        val scarce = listOf(socialLeft to PINK, gamesLeft to INDIGO).filter { it.first > 0 }.minByOrNull { it.first }
         return Card(
-            R.drawable.ic_stat_guard,
-            if (ok) "Proteção ativa" else "VPN: ${vpn.label}",
-            (if (vpn == VpnState.PROTECTED) "VPN protegida" else "VPN ${vpn.label.lowercase()}") + rest,
-            if (ok) GREEN else ORANGE,
-            chip = if (ok) "OK" else "VPN",
+            R.drawable.ic_stat_guard, title, text, scarce?.second ?: PINK,
+            chip = scarce?.let { mmss(it.first.toLong()) } ?: "0:00",
+            segments = segments, points = divider,
         )
     }
-
-    private fun quotaText(leftSec: Long, totalMin: Int) =
-        if (leftSec <= 0) "Esgotada por hoje" else "Restam ${minutes(leftSec)} de $totalMin min hoje"
 
     // ------------------------------------------------------------------ desenho
 
@@ -273,19 +282,30 @@ object NowBarNotifier {
             .setCategory(Notification.CATEGORY_PROGRESS)
 
         if (c.countdownTo != null) {
-            // Cronômetro regressivo: o sistema anima os segundos sozinho, sem atualizar a cada segundo.
+            // Cronômetro regressivo: o sistema anima os segundos sozinho.
             b.setWhen(c.countdownTo).setShowWhen(true).setUsesChronometer(true).setChronometerCountDown(true)
         } else {
             b.setShowWhen(false)
         }
 
+        val hasBar = c.segments != null || c.max > 0
         if (Build.VERSION.SDK_INT >= 36) {
-            if (c.max > 0) {
+            if (hasBar) {
                 val style = Notification.ProgressStyle()
-                    .setStyledByProgress(true)
-                    .setProgressSegments(listOf(Notification.ProgressStyle.Segment(c.max).setColor(c.color)))
-                    .setProgress(c.progress.coerceIn(0, c.max))
-                c.point?.let { style.setProgressPoints(listOf(Notification.ProgressStyle.Point(it).setColor(Color.WHITE))) }
+                if (c.segments != null) {
+                    style.setStyledByProgress(false)
+                        .setProgressSegments(c.segments.map { (len, color) -> Notification.ProgressStyle.Segment(len).setColor(color) })
+                        .setProgress(c.segments.sumOf { it.first })
+                } else {
+                    style.setStyledByProgress(true)
+                        .setProgressSegments(listOf(Notification.ProgressStyle.Segment(c.max).setColor(c.color)))
+                        .setProgress(c.progress.coerceIn(0, c.max))
+                }
+                if (c.points.isNotEmpty()) {
+                    style.setProgressPoints(c.points.map { (at, color) -> Notification.ProgressStyle.Point(at).setColor(color) })
+                }
+                c.tracker?.let { style.setProgressTrackerIcon(tinted(context, it, c.color)) }
+                c.endIcon?.let { style.setProgressEndIcon(tinted(context, it, c.color)) }
                 b.setStyle(style)
             } else {
                 b.setStyle(Notification.BigTextStyle().bigText(c.text))
@@ -294,17 +314,23 @@ object NowBarNotifier {
             b.addExtras(Bundle().apply { putBoolean("android.requestPromotedOngoing", true) })
             // Sem texto curto, o chip mostra o cronômetro.
             if (c.chip != null) b.setShortCriticalText(c.chip)
-        } else if (c.max > 0) {
-            b.setProgress(c.max, c.progress.coerceIn(0, c.max), false)
+        } else if (hasBar) {
+            val max = c.segments?.sumOf { it.first } ?: c.max
+            b.setProgress(max, if (c.segments != null) max else c.progress.coerceIn(0, max), false)
         }
         return b.build()
     }
+
+    private fun tinted(context: Context, res: Int, color: Int): Icon =
+        Icon.createWithResource(context, res).setTint(color)
+
+    private fun faded(color: Int) = Color.argb(77, Color.red(color), Color.green(color), Color.blue(color))
 
     // ------------------------------------------------------------------ tempo
 
     private fun seconds(ms: Long) = (ms / 1000).coerceIn(0, Int.MAX_VALUE.toLong()).toInt()
 
-    private fun minutes(sec: Long) = ((sec + 59) / 60).toInt()
+    private fun mmss(sec: Long) = "%d:%02d".format(sec / 60, sec % 60)
 
     private fun hhmm(epoch: Long): String {
         val t = Instant.ofEpochMilli(epoch).atZone(ZoneId.systemDefault()).toLocalTime()

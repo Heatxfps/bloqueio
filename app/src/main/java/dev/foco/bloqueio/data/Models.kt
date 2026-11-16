@@ -37,6 +37,8 @@ data class Schedule(
     val endMinute: Int = 4 * 60,
     /** Pausa feita pelo Admin no Hub (epoch ms). Enquanto no futuro, o descanso não vale. */
     val pausedUntil: Long = 0L,
+    /** Quando a pausa começou (para a barra da Now Bar). */
+    val pausedAt: Long = 0L,
 )
 
 @Serializable
