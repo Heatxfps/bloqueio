@@ -334,12 +334,18 @@ fun SwitchCell(
     )
 }
 
+/**
+ * Botão principal (preenchido), cápsula como no iOS 26. Use um por tela, para a ação mais
+ * provável (HIG › Buttons). [loading] mostra um indicador de atividade no lugar do ícone.
+ */
 @Composable
 fun PrimaryButton(
     text: String,
     modifier: Modifier = Modifier,
     color: Color = Bloqueio.colors.accentFill,
     enabled: Boolean = true,
+    icon: ImageVector? = null,
+    loading: Boolean = false,
     onClick: () -> Unit,
 ) {
     val source = remember { MutableInteractionSource() }
@@ -347,20 +353,21 @@ fun PrimaryButton(
         modifier
             .fillMaxWidth()
             .pressScale(source)
-            .heightIn(min = 50.dp)
-            .clip(RoundedCornerShape(Radius.button))
+            .heightIn(min = 54.dp)
+            .shadow(if (enabled) 6.dp else 0.dp, CircleShape, ambientColor = color, spotColor = color)
+            .clip(CircleShape)
             .background(if (enabled) color else color.copy(alpha = 0.35f))
             .clickable(
                 interactionSource = source,
                 indication = LocalIndication.current,
-                enabled = enabled,
+                enabled = enabled && !loading,
                 role = Role.Button,
                 onClick = onClick,
             )
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 20.dp, vertical = 14.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, style = BloqueioType.headline, color = Color.White, textAlign = TextAlign.Center)
+        PrimaryButtonContent(text, icon, loading)
     }
 }
 

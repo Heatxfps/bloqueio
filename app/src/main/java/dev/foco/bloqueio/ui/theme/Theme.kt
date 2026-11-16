@@ -40,6 +40,10 @@ data class BloqueioColors(
     val accentFill: Color,
     val focusFill: Color,
     val grayFill: Color,
+    /** Texto de botão tingido (fundo = cor-base a 10% no claro / 18% no escuro), ≥ 4,5:1. */
+    val accentTintText: Color,
+    val focusTintText: Color,
+    val dangerTintText: Color,
 )
 
 val LightColors = BloqueioColors(
@@ -62,6 +66,9 @@ val LightColors = BloqueioColors(
     accentFill = Color(0xFF0066D6),
     focusFill = Color(0xFF8E3FC2),
     grayFill = Color(0xFF636366),
+    accentTintText = Color(0xFF0066D6), // 4,71:1
+    focusTintText = Color(0xFF8E3FC2),
+    dangerTintText = Color(0xFFC42B1C),
 )
 
 val DarkColors = BloqueioColors(
@@ -84,6 +91,9 @@ val DarkColors = BloqueioColors(
     accentFill = Color(0xFF0071E3), // 4.70:1 com branco
     focusFill = Color(0xFFA050D0), // 4.61:1 com branco
     grayFill = Color(0xFF636366), // 5.99:1 com branco
+    accentTintText = Color(0xFF6CB4FF), // 6,26:1
+    focusTintText = Color(0xFFD9A0FF), // 6,73:1
+    dangerTintText = Color(0xFFFF8A80), // 6,06:1
 )
 
 /** Escala tipográfica do iOS. */

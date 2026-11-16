@@ -1,5 +1,12 @@
 package dev.foco.bloqueio.ui.screens
 
+import androidx.compose.material.icons.rounded.Key
+import androidx.compose.material.icons.rounded.LockOpen
+import androidx.compose.material.icons.rounded.RemoveModerator
+import androidx.compose.material.icons.rounded.Stop
+import dev.foco.bloqueio.ui.components.ChoiceChips
+import dev.foco.bloqueio.ui.components.Tint
+import dev.foco.bloqueio.ui.components.TintedButton
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.clickable
@@ -130,12 +137,19 @@ private fun AdminLogin(vault: PasswordVault) {
         }
         GroupedSection(header = "Desbloquear por") {
             Column(Modifier.padding(16.dp)) {
-                SegmentedControl(minutes.map { "$it min" }, minutesIdx, { minutesIdx = it })
+                ChoiceChips(minutes.map { "$it min" }, minutesIdx, { minutesIdx = it })
             }
         }
         Spacer(Modifier.height(24.dp))
-        PrimaryButton(if (busy) "Verificando…" else "Desbloquear", enabled = pw.isNotEmpty() && !busy, onClick = ::tryUnlock)
-        TextButtonIos("Esqueci a senha") { recovering = true }
+        PrimaryButton(
+            if (busy) "Verificando…" else "Desbloquear",
+            enabled = pw.isNotEmpty(),
+            icon = Icons.Rounded.LockOpen,
+            loading = busy,
+            onClick = ::tryUnlock,
+        )
+        Spacer(Modifier.height(10.dp))
+        TintedButton("Esqueci a senha", icon = Icons.Rounded.Key) { recovering = true }
     }
 
     if (recovering) {
@@ -245,10 +259,12 @@ private fun AdminPanel(vault: PasswordVault) {
 
         // Foco
         if (config.focus.isActive(now)) {
-            GroupedSection(header = "Foco") {
-                Cell("Encerrar foco agora", titleColor = Bloqueio.colors.danger, showDivider = false, onClick = {
-                    runGuarded(context) { RulesRepository.endFocus() }
-                })
+            GroupedSection(header = "Foco", footer = "O foco em andamento termina na hora.") {
+                Column(Modifier.padding(16.dp)) {
+                    TintedButton("Encerrar foco agora", tint = Tint.Danger, icon = Icons.Rounded.Stop) {
+                        runGuarded(context) { RulesRepository.endFocus() }
+                    }
+                }
             }
         }
 
@@ -283,14 +299,25 @@ private fun AdminPanel(vault: PasswordVault) {
 
         // Senha e proteção
         GroupedSection(header = "Segurança") {
-            Cell("Trocar senha mestra", chevron = true, onClick = { changingPw = true })
-            Cell(
-                "Remover proteção do dispositivo",
-                subtitle = if (policy.isDeviceOwner) "Libera a desinstalação do Bloqueio" else "A proteção do sistema não está ativa",
-                titleColor = Bloqueio.colors.danger,
-                showDivider = false,
-                onClick = if (policy.isDeviceOwner) ({ confirmRemove = true }) else null,
-            )
+            Cell("Trocar senha mestra", chevron = true, showDivider = false, onClick = { changingPw = true })
+        }
+        // Destrutivo: botão tingido de vermelho, nunca o principal da tela (HIG › Buttons).
+        GroupedSection(
+            header = "Proteção do sistema",
+            footer = if (policy.isDeviceOwner) {
+                "Libera a trava da VPN, as pausas de apps e a desinstalação do Bloqueio."
+            } else {
+                "A proteção do sistema não está ativa."
+            },
+        ) {
+            Column(Modifier.padding(16.dp)) {
+                TintedButton(
+                    "Remover proteção do dispositivo…",
+                    tint = Tint.Danger,
+                    icon = Icons.Rounded.RemoveModerator,
+                    enabled = policy.isDeviceOwner,
+                ) { confirmRemove = true }
+            }
         }
     }
 
@@ -400,13 +427,9 @@ private fun UnlockedChip(timeLeft: String, onLock: () -> Unit) {
             "Desbloqueado · $timeLeft restantes", style = BloqueioType.callout, color = Bloqueio.colors.label,
             modifier = Modifier.weight(1f),
         )
-        Text(
-            "Bloquear", style = BloqueioType.headline, color = Bloqueio.colors.accent,
-            modifier = Modifier
-                .clickable(role = Role.Button, onClick = onLock)
-                .heightIn(min = 48.dp)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-        )
+        Box(Modifier.padding(6.dp)) {
+            TintedButton("Bloquear", icon = Icons.Rounded.Lock, compact = true, onClick = onLock)
+        }
     }
 }
 
