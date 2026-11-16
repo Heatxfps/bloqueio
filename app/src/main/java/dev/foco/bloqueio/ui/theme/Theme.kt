@@ -12,6 +12,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Typography
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -106,6 +107,7 @@ val DarkColors = BloqueioColors(
  * Inter (licença OFL, docs/licencas) no lugar da SF, que só pode ser usada em aparelhos Apple.
  * Duas famílias pelo eixo óptico "opsz", como a SF Text/Display: textos (14) e títulos (32).
  */
+@OptIn(ExperimentalTextApi::class)
 private fun inter(opsz: Float) = FontFamily(
     listOf(300, 400, 500, 600, 700).map { w ->
         Font(
