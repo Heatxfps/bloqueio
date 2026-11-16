@@ -1,83 +1,61 @@
-# 10 · Now Bar dinâmica
+# 10 · Notificação: anel das cotas e Now Bar do foco
 
-A notificação contínua do Bloqueio muda conforme o momento. No Android 16+ ela pede promoção
-a **Live Update** (`android.requestPromotedOngoing` + `ProgressStyle`). No One UI 8+ isso a
-leva à **Now Bar** da tela de bloqueio e ao chip da barra de status.
+A notificação contínua do Bloqueio tem duas formas. Código: `notify/NowBarNotifier.kt`
+(desenho) e `service/GuardService.kt` (quando atualizar).
 
-Código: `notify/NowBarNotifier.kt` (escolha e desenho do cartão) e `service/GuardService.kt`
-(quando atualizar).
+## Foco ativo → Now Bar
 
-## Gramática comum
+É o **único** momento em que o app ocupa a Now Bar. A notificação pede promoção a Live Update
+(`android.requestPromotedOngoing` + `ProgressStyle`, Android 16+):
 
-Todos os cartões seguem a mesma estrutura, como uma Live Activity
-(HIG › Live Activities: "Focus on important information that people need to see at a glance").
+- **Título:** Foco total / Foco parcial / Celular bloqueado.
+- **Texto:** "Até 15:30 · redes e jogos bloqueados".
+- **Chip e cabeçalho:** cronômetro regressivo do sistema até o fim.
+- **Barra:** roxa, enche do início ao fim, com o símbolo do modo andando na ponta.
 
-| Parte | Papel |
-|---|---|
-| **Título** | O que está valendo agora, em poucas palavras |
-| **Texto** | Uma linha de contexto (até quando, o que está bloqueado) |
-| **Chip** | O valor vivo: cronômetro quando há prazo; senão, um texto curto |
-| **Barra** | Tempo. O símbolo do cartão anda na ponta, e o destino fica no fim |
-| **Cor** | Rosa = redes · Índigo = jogos e noite · Roxo = foco · Laranja = exceção temporária · Vermelho = falha |
+## Resto do tempo → anel na gaveta
 
-## Cartões, do mais urgente para o mais calmo
+Uma notificação comum, sem promoção, com layout próprio (`DecoratedCustomViewStyle`). Ela usa o
+**mesmo anel duplo da tela Início**: o externo é redes (rosa), o interno é jogos (índigo), e o
+progresso é a fração que **sobra**.
 
-### 1 · Foco ativo
-- Título: **Foco total** / **Foco parcial** / **Celular bloqueado**.
-- Texto: "Até 15:30 · redes e jogos bloqueados".
-- Chip: cronômetro regressivo até o fim.
-- Barra roxa, que enche do início ao fim do foco. O símbolo do modo (alvo ou cadeado) anda na ponta.
-
-### 2 · Descanso / pausa de emergência
-- **Hora de descansar**: "Só os essenciais até as 04:00", com cronômetro até a liberação e barra índigo da noite.
-- **Descanso pausado**: "O bloqueio volta às 20:45", com cronômetro até o bloqueio voltar. A barra
-  laranja vai do momento da pausa (`Schedule.pausedAt`) até o fim, com um cadeado aberto andando
-  em direção à lua.
-
-### 3 · Servidor fora do ar
-- Em vermelho: "A VPN foi desligada para a internet não cair. Volta sozinha." O chip mostra "VPN".
-
-### 4 · Admin liberado
-- "Regras editáveis até as 15:12", com cronômetro até travar. A barra laranja esvazia.
-
-### 5 · Descanso em 15 min
-- Título: **Descanso às 20:00**. Texto: "Termine o que está fazendo. Depois, só os essenciais."
-- Chip: cronômetro até o início.
-- Barra índigo de 15 min: a lua anda até o cadeado no fim.
-
-### 6 · Cotas (o principal)
-As duas cotas ficam num cartão só, em **min:seg**:
-
+Recolhida (`res/layout/notif_quota.xml`):
 ```
-Redes 12:34  ·  Jogos 08:10
-Nada descontando · VPN protegida · descanso às 20:00
-[■■■■■■■■□□□|■■■■■□□□□□□]   chip: 8:10
-  rosa        índigo
+ ◎  ● Redes 12:34    ● Jogos 08:10
+    VPN protegida · descanso às 20:00
 ```
 
-- Barra: dois trechos lado a lado, cada um do tamanho da sua cota. A cor cheia é o que sobra,
-  e a apagada é o que já foi usado. Uma marca branca separa os dois.
-- **Parado** (nenhum app de cota aberto): o chip mostra, em min:seg, a cota mais perto de acabar.
-- **Com rede social ou jogo aberto**: só essa cota desce. O chip vira cronômetro e o ícone muda
-  para balão (redes) ou controle (jogos). O texto diz "Instagram está usando a cota de redes".
-  O título atualiza a cada segundo, e entre os ciclos de 10 s o serviço desconta o tempo ao vivo.
-- Cota zerada: "Redes esgotada".
+Expandida (`res/layout/notif_quota_big.xml`): anel de 84 dp, cada cota numa linha em 18 sp e a
+linha de contexto embaixo.
 
-## Quando a barra é atualizada
+- Tempos em **min:seg**, com números de largura fixa (`tnum`). Cota zerada aparece como "esgotada".
+- A bolinha colorida é a legenda do anel. O nome sempre vem ao lado, porque a cor nunca está sozinha.
+- O anel tem descrição para o TalkBack ("Redes: 12:34. Jogos: 08:10.").
+- Com rede social ou jogo aberto, a notificação atualiza **a cada segundo**. O ícone pequeno vira
+  balão ou controle, e o serviço desconta o tempo ao vivo entre os ciclos de 10 s.
 
-- A cada 10 s, no ciclo do serviço.
-- A cada 1 s, enquanto uma rede social ou um jogo está aberto (fora de foco e de descanso).
-- Na hora em que: o app em primeiro plano muda, a configuração muda (foco iniciado, pausa,
-  cotas), o admin destrava, o estado da VPN muda.
-- Os cronômetros são do próprio sistema (`setUsesChronometer` + `setChronometerCountDown`).
+### Linha de contexto (a primeira que valer)
 
-## Requisito do Samsung
+1. Descanso pausado até 20:45
+2. Hora de descansar · libera às 04:00
+3. Servidor fora do ar · VPN desligada até ele voltar
+4. Admin liberado até 15:12
+5. Descanso às 20:00 · em 12 min (nos 15 min antes)
+6. Instagram está usando a cota de redes
+7. VPN protegida · descanso às 20:00
 
-O Android promove a notificação sozinho (`PROMOTED_ONGOING` no `dumpsys notification`). Mas o
-One UI só a mostra na Now Bar se as **Live notifications** estiverem liberadas para apps de
-terceiros. Conforme a versão, isso fica em:
+## Quando atualiza
 
-- Configurações › Tela de bloqueio e AOD › Now Bar (lista de apps), ou
-- Opções do desenvolvedor › **Live notifications for all apps** (Notificações ao vivo para todos os apps).
+- A cada 10 s, no ciclo do serviço. A cada 1 s, com um app de cota aberto (fora de foco e de descanso).
+- Na hora em que: o app em primeiro plano muda, a configuração muda (foco, pausa, cotas), o admin
+  destrava, o estado da VPN muda.
 
-Sem isso, os cartões continuam funcionando na gaveta de notificações, mas não aparecem na Now Bar.
+## Requisito do Samsung (só para o foco)
+
+O One UI só mostra o cartão do foco na Now Bar se as **Live notifications** estiverem liberadas
+para apps de terceiros:
+
+- Configurações › Tela de bloqueio e AOD › Now Bar, ou
+- Opções do desenvolvedor › **Live notifications for all apps**.
+
+Sem isso, o foco aparece normalmente na gaveta, com cronômetro e barra.
