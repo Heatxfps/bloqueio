@@ -97,9 +97,11 @@ Pronto. Na aba **Regras** você adiciona apps às categorias, e no **Admin** aju
 
 ### Now Bar (Samsung)
 
-O cronômetro do foco aparece na Now Bar quando as *Live notifications* estão liberadas para apps de terceiros. Conforme a versão do One UI, isso fica em:
-- **Configurações → Tela de bloqueio e AOD → Now Bar**, ou
-- **Opções do desenvolvedor → Live notifications for all apps** (Notificações ao vivo para todos os apps).
+A Now Bar **não liga sozinha** para apps de fora da Samsung. Como a depuração USB já deixou as Opções do desenvolvedor visíveis, aproveite e ative:
+
+**Configurações → Opções do desenvolvedor → Notif. ao vivo para todos apps** (em inglês, *Live notifications for all apps*).
+
+Sem isso, o cronômetro do foco aparece só na gaveta de notificações.
 
 ### Tailscale (opcional)
 
@@ -127,4 +129,4 @@ Baixe o `bloqueio.apk` novo e rode `adb install -r bloqueio.apk`, ou abra o arqu
 | `Not allowed to set the device owner because the device is already provisioned` | Alguns aparelhos exigem as contas fora **e** nenhum usuário extra. Se mesmo assim falhar, o caminho é restaurar o aparelho e rodar o passo 4 antes de entrar em qualquer conta. |
 | Banco reclama de "risco de segurança" | Abra o banco pela aba **Pasta segura** do Bloqueio, que monta o ambiente limpo. Alguns bancos recusam mesmo assim. Veja [LIMITACOES.md](LIMITACOES.md). |
 | A acessibilidade aparece desligada depois de atualizar | O Bloqueio religa sozinho em até 30 s. Se não religar, desligue e ligue de novo em Configurações → Acessibilidade → Apps instalados → Bloqueio. |
-| O cronômetro não aparece na Now Bar | Veja a seção *Now Bar* acima. Sem ela, o cronômetro aparece normalmente na gaveta de notificações. |
+| O cronômetro não aparece na Now Bar | Ative **Opções do desenvolvedor → Notif. ao vivo para todos apps** (seção *Now Bar* acima). |

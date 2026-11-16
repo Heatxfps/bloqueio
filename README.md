@@ -68,6 +68,7 @@ O guia completo, com o caminho de cada menu e a solução dos erros comuns, est�
    adb shell appops set dev.foco.bloqueio GET_USAGE_STATS allow
    ```
 4. Coloque as contas de volta, abra o **Bloqueio**, crie a **senha do admin** e **guarde o código de recuperação**.
+5. *(Samsung)* Para o cronômetro do foco ir para a Now Bar, ative **Opções do desenvolvedor → Notif. ao vivo para todos apps**.
 
 > [!WARNING]
 > **Leia antes de instalar.** O Bloqueio foi feito para ser difícil de desligar, e isso vale para você também.
@@ -98,7 +99,7 @@ Não. Sem o Tailscale, a função de VPN fica parada e o resto funciona normalme
 <details>
 <summary><b>Funciona em qualquer Android?</b></summary>
 
-Funciona em Android 10 ou mais novo. A Now Bar é da Samsung (One UI 8+). Nos outros celulares, o cronômetro do foco aparece como notificação normal. A detecção de Reels e Shorts foi conferida no Instagram, no YouTube e no Facebook em português. Se um app mudar o layout, veja [LIMITACOES.md](docs/LIMITACOES.md).
+Funciona em Android 10 ou mais novo. A Now Bar é da Samsung (One UI 8+) e precisa de um interruptor: **Opções do desenvolvedor → Notif. ao vivo para todos apps**. Nos outros celulares, o cronômetro do foco aparece como notificação normal. A detecção de Reels e Shorts foi conferida no Instagram, no YouTube e no Facebook em português. Se um app mudar o layout, veja [LIMITACOES.md](docs/LIMITACOES.md).
 </details>
 
 <details>

@@ -52,10 +52,11 @@ linha de contexto embaixo.
 
 ## Requisito do Samsung (só para o foco)
 
-O One UI só mostra o cartão do foco na Now Bar se as **Live notifications** estiverem liberadas
-para apps de terceiros:
+A Now Bar **não liga sozinha** para apps de fora da Samsung. É preciso ativar uma vez:
 
-- Configurações › Tela de bloqueio e AOD › Now Bar, ou
-- Opções do desenvolvedor › **Live notifications for all apps**.
+**Configurações › Opções do desenvolvedor › Notif. ao vivo para todos apps** (em inglês,
+*Live notifications for all apps*).
+
+O app pede a promoção, mas a decisão é do sistema, e esse interruptor é o que libera.
 
 Sem isso, o foco aparece normalmente na gaveta, com cronômetro e barra.
