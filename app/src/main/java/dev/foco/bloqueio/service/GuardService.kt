@@ -9,7 +9,9 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.content.ContextCompat
@@ -146,17 +148,32 @@ class GuardService : Service() {
      * em foco, com a tela ligada. Gaveta de notificações aberta, tela de bloqueio ou tela apagada
      * = pausa. Não depende de toque nem de eventos: um vídeo rodando parado continua contando.
      */
+    private val main = Handler(Looper.getMainLooper())
+
     private suspend fun counter() {
         var last = System.currentTimeMillis()
+        var pendingMs = 0L
         var lastLogged: String? = ""
         while (scope.isActive) {
             delay(1_000)
             val now = System.currentTimeMillis()
-            val elapsed = ((now - last) / 1000).coerceIn(0, 5)
-            last += elapsed * 1000
+            // Só o intervalo desde a última volta, limitado a 2 s. Com a tela apagada o celular
+            // dorme e este laço para; ao acordar NÃO se recupera o tempo parado (antes o atraso
+            // era "devolvido" 5 s por segundo e caía na cota se a pessoa abrisse o Reels logo).
+            val delta = (now - last).coerceIn(0, 2_000)
+            last = now
             runCatching {
+                // Bloqueio parcial (cota esgotada, foco) sem depender de eventos.
+                GuardAccessibilityService.instance?.let { a11y -> main.post { runCatching { a11y.recheck() } } }
                 val use = inUse()
-                if (use != null && elapsed > 0) QuotaTracker.add(use.category, elapsed)
+                if (use == null) {
+                    pendingMs = 0
+                } else {
+                    pendingMs += delta
+                    val sec = pendingMs / 1000
+                    pendingMs -= sec * 1000
+                    if (sec > 0) QuotaTracker.add(use.category, sec)
+                }
                 val tag = use?.let { "${it.label}/${it.category}" + (it.why?.let { w -> " [$w]" } ?: "") }
                 if (tag != lastLogged) {
                     Log.i("Quota", if (tag == null) "pausado (${pauseReason()})" else "contando: $tag")

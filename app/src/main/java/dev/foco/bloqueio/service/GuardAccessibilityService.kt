@@ -55,7 +55,25 @@ class GuardAccessibilityService : AccessibilityService() {
         } else if (pkg != GuardState.foreground.value) {
             return
         }
+        enforce(pkg, now) { rootInActiveWindow }
+    }
 
+    /**
+     * Rechecagem periódica (chamada pelo contador a cada segundo, na thread principal). Eventos não
+     * bastam: ao fechar a gaveta, o app que estava por baixo volta ao foco sem mandar
+     * WINDOW_STATE_CHANGED, e a rolagem dele era ignorada por não bater com o "foreground".
+     * Aqui o app em foco é lido direto das janelas.
+     */
+    fun recheck() {
+        if (systemPanelOnTop()) return
+        val root = focusedAppRoot() ?: return
+        val pkg = root.packageName?.toString() ?: return
+        if (pkg in ignorable) return
+        GuardState.foreground.value = pkg
+        enforce(pkg, System.currentTimeMillis()) { root }
+    }
+
+    private fun enforce(pkg: String, now: Long, rootOf: () -> AccessibilityNodeInfo?) {
         val config = RulesRepository.config.value
         val verdict = Enforcer.decide(
             pkg, catalog.category(pkg, config), pkg in allowed || pkg == config.vpn.tailscalePackage,
@@ -79,7 +97,7 @@ class GuardAccessibilityService : AccessibilityService() {
             is Verdict.Partial -> {
                 if (!DistractionDetector.supports(pkg) || now - lastScanAt < 350) return
                 lastScanAt = now
-                val root = rootInActiveWindow
+                val root = rootOf()
                 val found = DistractionDetector.detect(pkg, root) ?: return
                 if (now - lastActionAt > 800) {
                     lastActionAt = now
