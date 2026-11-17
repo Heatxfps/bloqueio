@@ -4,11 +4,13 @@
 
 > ⚠️ Instalar o APK **não** basta. O Bloqueio só consegue travar a VPN, impedir a desinstalação e suspender apps depois de virar **Device Owner** pelo computador. Para isso, siga o **[passo a passo de instalação](https://github.com/Heatxfps/bloqueio/blob/main/docs/INSTALACAO.md)** (uns 15 minutos).
 
-## O que mudou na 1.0.1
+## O que mudou na 1.0.2
 
-- **Now Bar sem configuração manual no Samsung.** O Bloqueio liga sozinho a opção *Notif. ao vivo para todos apps* (Opções do desenvolvedor), que libera a Now Bar para apps de fora da Samsung, e religa se ela for desligada.
+- **Cota de redes contando no ritmo certo.** Ao acordar o celular, o contador "recuperava" o tempo de tela apagada e cobrava na cota se você abrisse o Reels logo em seguida. Agora só conta o tempo em que o Reels ou o Shorts estão de fato na tela.
+- **Reels bloqueado também depois da gaveta.** Com a cota esgotada, abrir e fechar a gaveta de notificações deixava rolar o Reels à vontade. Agora o app confere a tela a cada segundo e tira você de lá.
+- *(1.0.1)* No Samsung, o app liga sozinho *Notif. ao vivo para todos apps*, que libera a Now Bar.
 
-Quem já tem a 1.0.0 só precisa instalar por cima: `adb install -r bloqueio.apk`, ou abrir o arquivo no celular.
+Quem já tem uma versão anterior só precisa instalar por cima: `adb install -r bloqueio.apk`, ou abrir o arquivo no celular.
 
 ## O que o app faz
 
