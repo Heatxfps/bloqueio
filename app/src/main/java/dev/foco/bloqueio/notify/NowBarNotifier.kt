@@ -137,16 +137,17 @@ object NowBarNotifier {
         val gamesTotal = cfg.quotas.gamesMinutes * 60
         val socialLeft = s.socialLeftSec.toInt().coerceIn(0, socialTotal.coerceAtLeast(0))
         val gamesLeft = s.gamesLeftSec.toInt().coerceIn(0, gamesTotal.coerceAtLeast(0))
-        val socialFrac = if (socialTotal > 0) socialLeft / socialTotal.toFloat() else 0f
-        val gamesFrac = if (gamesTotal > 0) gamesLeft / gamesTotal.toFloat() else 0f
+        val socialFrac = if (!s.socialQuotaOn) 1f else if (socialTotal > 0) socialLeft / socialTotal.toFloat() else 0f
+        val gamesFrac = if (!s.gamesQuotaOn) 1f else if (gamesTotal > 0) gamesLeft / gamesTotal.toFloat() else 0f
 
-        fun value(left: Int, total: Int) = when {
+        fun value(left: Int, total: Int, on: Boolean) = when {
+            !on -> "sem limite"
             total <= 0 -> "sem cota"
             left <= 0 -> "esgotada"
             else -> mmss(left.toLong())
         }
-        val socialValue = value(socialLeft, socialTotal)
-        val gamesValue = value(gamesLeft, gamesTotal)
+        val socialValue = value(socialLeft, socialTotal, s.socialQuotaOn)
+        val gamesValue = value(gamesLeft, gamesTotal, s.gamesQuotaOn)
         val active = inUse?.takeIf {
             (it.category == Category.SOCIAL && socialLeft > 0) || (it.category == Category.GAME && gamesLeft > 0)
         }

@@ -42,7 +42,13 @@ data class Schedule(
 )
 
 @Serializable
-data class Quotas(val socialMinutes: Int = 20, val gamesMinutes: Int = 20)
+data class Quotas(
+    val socialMinutes: Int = 20,
+    val gamesMinutes: Int = 20,
+    /** Desligada: a categoria não conta nem bloqueia por cota (foco e descanso continuam valendo). */
+    val socialEnabled: Boolean = true,
+    val gamesEnabled: Boolean = true,
+)
 
 @Serializable
 data class VpnConfig(

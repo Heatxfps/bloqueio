@@ -98,8 +98,8 @@ fun HomeScreen() {
         "Bloqueio",
         aura = {
             QuotaAura(
-                social = if (sTotalAura > 0) state.socialLeftSec / sTotalAura else 0f,
-                games = if (gTotalAura > 0) state.gamesLeftSec / gTotalAura else 0f,
+                social = if (!state.socialQuotaOn) 1f else if (sTotalAura > 0) state.socialLeftSec / sTotalAura else 0f,
+                games = if (!state.gamesQuotaOn) 1f else if (gTotalAura > 0) state.gamesLeftSec / gTotalAura else 0f,
             )
         },
     ) {
@@ -118,14 +118,14 @@ fun HomeScreen() {
             val sTotal = config.quotas.socialMinutes * 60f
             val gTotal = config.quotas.gamesMinutes * 60f
             QuotaRing(
-                socialLeft = if (sTotal > 0) state.socialLeftSec / sTotal else 0f,
-                gamesLeft = if (gTotal > 0) state.gamesLeftSec / gTotal else 0f,
+                socialLeft = if (!state.socialQuotaOn) 1f else if (sTotal > 0) state.socialLeftSec / sTotal else 0f,
+                gamesLeft = if (!state.gamesQuotaOn) 1f else if (gTotal > 0) state.gamesLeftSec / gTotal else 0f,
                 size = 112.dp,
             )
             Spacer(Modifier.width(20.dp))
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                QuotaLine("Redes sociais", state.socialLeftSec, Bloqueio.colors.social)
-                QuotaLine("Jogos", state.gamesLeftSec, Bloqueio.colors.games)
+                QuotaLine("Redes sociais", state.socialLeftSec, Bloqueio.colors.social, on = state.socialQuotaOn)
+                QuotaLine("Jogos", state.gamesLeftSec, Bloqueio.colors.games, on = state.gamesQuotaOn)
                 Text("restantes hoje", style = BloqueioType.footnote, color = Bloqueio.colors.secondaryLabel)
             }
         }
@@ -174,7 +174,7 @@ fun HomeScreen() {
 }
 
 @Composable
-private fun QuotaLine(title: String, secondsLeft: Long, color: Color) {
+private fun QuotaLine(title: String, secondsLeft: Long, color: Color, on: Boolean = true) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Spacer(Modifier.size(10.dp).clip(CircleShape).background(color))
         Spacer(Modifier.width(8.dp))
@@ -182,7 +182,11 @@ private fun QuotaLine(title: String, secondsLeft: Long, color: Color) {
             Text(title, style = BloqueioType.footnote, color = Bloqueio.colors.secondaryLabel)
             // Cota zerada também em texto: a informação não depende só do anel/cor.
             RollingText(
-                if (secondsLeft <= 0) "Esgotada" else formatClock(secondsLeft),
+                when {
+                    !on -> "Sem limite"
+                    secondsLeft <= 0 -> "Esgotada"
+                    else -> formatClock(secondsLeft)
+                },
                 style = BloqueioType.title2, color = Bloqueio.colors.label,
             )
         }

@@ -206,6 +206,9 @@ class GuardService : Service() {
         val pkg = visiblePackage() ?: return null
         val cat = catalog.category(pkg, RulesRepository.config.value)
         if (cat == Category.NONE) return null
+        // Cota desligada no Admin: essa categoria não conta.
+        val q = RulesRepository.config.value.quotas
+        if (cat == Category.SOCIAL && !q.socialEnabled || cat == Category.GAME && !q.gamesEnabled) return null
         // Redes com detector (Instagram, Facebook, YouTube, TikTok...): a cota só desce na área
         // de consumo (Reels, Shorts). Feed, busca, mensagens e perfil não descontam.
         // Jogos e redes sem detector descontam o app inteiro.

@@ -229,17 +229,30 @@ private fun AdminPanel(vault: PasswordVault) {
         UnlockedChip("%d:%02d".format(left / 60, left % 60)) { AdminSession.lock() }
 
         // Cotas
-        GroupedSection(header = "Cotas diárias") {
-            StepperCell("Redes sociais", "${config.quotas.socialMinutes} min", {
-                update { it.copy(quotas = it.quotas.copy(socialMinutes = (it.quotas.socialMinutes - 5).coerceAtLeast(0))) }
-            }, {
-                update { it.copy(quotas = it.quotas.copy(socialMinutes = (it.quotas.socialMinutes + 5).coerceAtMost(240))) }
-            })
-            StepperCell("Jogos", "${config.quotas.gamesMinutes} min", {
-                update { it.copy(quotas = it.quotas.copy(gamesMinutes = (it.quotas.gamesMinutes - 5).coerceAtLeast(0))) }
-            }, {
-                update { it.copy(quotas = it.quotas.copy(gamesMinutes = (it.quotas.gamesMinutes + 5).coerceAtMost(240))) }
-            }, showDivider = false)
+        val q = config.quotas
+        GroupedSection(
+            header = "Cotas diárias",
+            footer = "Com a cota desligada, a categoria não conta tempo nem é bloqueada por cota. Foco e descanso continuam valendo.",
+        ) {
+            SwitchCell("Redes sociais", q.socialEnabled, { v -> update { it.copy(quotas = it.quotas.copy(socialEnabled = v)) } })
+            if (q.socialEnabled) {
+                StepperCell("Limite por dia", "${q.socialMinutes} min", {
+                    update { it.copy(quotas = it.quotas.copy(socialMinutes = (it.quotas.socialMinutes - 5).coerceAtLeast(0))) }
+                }, {
+                    update { it.copy(quotas = it.quotas.copy(socialMinutes = (it.quotas.socialMinutes + 5).coerceAtMost(240))) }
+                })
+            }
+            SwitchCell(
+                "Jogos", q.gamesEnabled, { v -> update { it.copy(quotas = it.quotas.copy(gamesEnabled = v)) } },
+                showDivider = q.gamesEnabled,
+            )
+            if (q.gamesEnabled) {
+                StepperCell("Limite por dia", "${q.gamesMinutes} min", {
+                    update { it.copy(quotas = it.quotas.copy(gamesMinutes = (it.quotas.gamesMinutes - 5).coerceAtLeast(0))) }
+                }, {
+                    update { it.copy(quotas = it.quotas.copy(gamesMinutes = (it.quotas.gamesMinutes + 5).coerceAtMost(240))) }
+                }, showDivider = false)
+            }
         }
 
         // Horário

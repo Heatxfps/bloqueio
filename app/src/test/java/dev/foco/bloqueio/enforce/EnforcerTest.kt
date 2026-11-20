@@ -55,6 +55,24 @@ class EnforcerTest {
     @Test fun `cota de redes esgotada vira parcial`() =
         assertTrue(Enforcer.decide("ig", Category.SOCIAL, false, state(social = 20 * 60)) is Verdict.Partial)
 
+    @Test fun `cota de redes desligada nao bloqueia`() {
+        val c = base.copy(quotas = base.quotas.copy(socialEnabled = false))
+        assertEquals(Verdict.Allow, Enforcer.decide("ig", Category.SOCIAL, false, state(c, social = 99 * 60)))
+    }
+
+    @Test fun `cota de jogos desligada nao bloqueia`() {
+        val c = base.copy(quotas = base.quotas.copy(gamesEnabled = false))
+        assertEquals(Verdict.Allow, Enforcer.decide("g", Category.GAME, false, state(c, games = 99 * 60)))
+    }
+
+    @Test fun `cota desligada nao libera o foco`() {
+        val c = base.copy(
+            quotas = base.quotas.copy(gamesEnabled = false),
+            focus = Focus(level = FocusLevel.TOTAL, until = now + 60_000),
+        )
+        assertEquals(Verdict.Block(BlockReason.FOCUS), Enforcer.decide("g", Category.GAME, false, state(c)))
+    }
+
     @Test fun `foco parcial bloqueia jogos e deixa redes parcial`() {
         val c = base.copy(focus = Focus(FocusLevel.PARTIAL, now + 60_000))
         assertEquals(Verdict.Block(BlockReason.FOCUS), Enforcer.decide("g", Category.GAME, false, state(c)))

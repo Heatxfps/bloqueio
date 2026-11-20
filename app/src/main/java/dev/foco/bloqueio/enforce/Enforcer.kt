@@ -30,6 +30,8 @@ data class EnforceState(
 ) {
     val socialLeftSec get() = (config.quotas.socialMinutes * 60L - usedSocialSec).coerceAtLeast(0)
     val gamesLeftSec get() = (config.quotas.gamesMinutes * 60L - usedGamesSec).coerceAtLeast(0)
+    val socialQuotaOn get() = config.quotas.socialEnabled
+    val gamesQuotaOn get() = config.quotas.gamesEnabled
     val inSchedule get() = config.schedule.enabled && config.schedule.pausedUntil <= now &&
         ScheduleWindow.contains(minuteOfDay, config.schedule.startMinute, config.schedule.endMinute)
     val focusLevel get() = if (config.focus.isActive(now)) config.focus.level else FocusLevel.OFF
@@ -57,13 +59,13 @@ object Enforcer {
         return when (category) {
             Category.GAME -> when {
                 focus != FocusLevel.OFF -> Verdict.Block(BlockReason.FOCUS)
-                s.gamesLeftSec <= 0 -> Verdict.Block(BlockReason.GAME_QUOTA)
+                s.gamesQuotaOn && s.gamesLeftSec <= 0 -> Verdict.Block(BlockReason.GAME_QUOTA)
                 else -> Verdict.Allow
             }
             Category.SOCIAL -> when {
                 focus == FocusLevel.TOTAL || focus == FocusLevel.LOCK -> Verdict.Block(BlockReason.FOCUS)
                 focus == FocusLevel.PARTIAL -> Verdict.Partial("Foco parcial: só criar está liberado.")
-                s.socialLeftSec <= 0 -> Verdict.Partial("Cota de redes sociais esgotada.")
+                s.socialQuotaOn && s.socialLeftSec <= 0 -> Verdict.Partial("Cota de redes sociais esgotada.")
                 else -> Verdict.Allow
             }
             Category.NONE -> Verdict.Allow
