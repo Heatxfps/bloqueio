@@ -4,7 +4,11 @@
 
 > ⚠️ Instalar o APK **não** basta. O Bloqueio só consegue travar a VPN, impedir a desinstalação e suspender apps depois de virar **Device Owner** pelo computador. Para isso, siga o **[passo a passo de instalação](https://github.com/Heatxfps/bloqueio/blob/main/docs/INSTALACAO.md)** (uns 15 minutos).
 
-## O que mudou na 1.0.2
+## O que mudou na 1.0.3
+
+- **Ligar e desligar cada cota.** Em **Admin › Cotas diárias**, redes sociais e jogos têm um interruptor próprio. Com a cota desligada, a categoria não conta tempo nem é bloqueada por cota, e a Home e a notificação mostram "Sem limite". Foco e descanso continuam valendo.
+
+### Na 1.0.2
 
 - **Cota de redes contando no ritmo certo.** Ao acordar o celular, o contador "recuperava" o tempo de tela apagada e cobrava na cota se você abrisse o Reels logo em seguida. Agora só conta o tempo em que o Reels ou o Shorts estão de fato na tela.
 - **Reels bloqueado também depois da gaveta.** Com a cota esgotada, abrir e fechar a gaveta de notificações deixava rolar o Reels à vontade. Agora o app confere a tela a cada segundo e tira você de lá.
