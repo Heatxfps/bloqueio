@@ -1,6 +1,7 @@
 # 02 · Cotas de distração
 
 - Duas cotas diárias independentes: **Redes sociais** (padrão 20 min) e **Jogos** (padrão 20 min). Zeram à meia-noite.
+- Cada cota pode ser **ligada ou desligada** em **Admin › Cotas diárias**. Desligada, a categoria não conta tempo nem é bloqueada por cota, e a Home e a notificação mostram "Sem limite". Foco e descanso continuam valendo.
 - **Contagem**: o `GuardService` soma de segundo em segundo o que a pessoa está **vendo**: a janela de app em foco, com a tela ligada. Não depende de toque, então um vídeo rodando parado continua contando.
   - **Pausa** com a gaveta de notificações aberta, na tela de bloqueio ou com a tela apagada.
   - **Jogos** e redes sem detector descontam o app inteiro.

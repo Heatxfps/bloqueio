@@ -43,7 +43,7 @@ Sem anúncios, sem contas e sem servidor: tudo fica no seu celular.
 
 | | Funcionalidade | Em poucas palavras |
 |---|---|---|
-| ⏱️ | **[Cotas](docs/funcionalidades/02-cotas.md)** | 20 min de redes e 20 min de jogos por dia (ajustável). Nas redes, a cota só desce em **Reels e Shorts**. Quando acaba, só eles somem: Direct, feed e publicar continuam. |
+| ⏱️ | **[Cotas](docs/funcionalidades/02-cotas.md)** | 20 min de redes e 20 min de jogos por dia (ajustável, e cada uma pode ser desligada). Nas redes, a cota só desce em **Reels e Shorts**. Quando acaba, só eles somem: Direct, feed e publicar continuam. |
 | 🎯 | **[Foco](docs/funcionalidades/05-foco.md)** | **Parcial** (sem consumo), **Total** (sem redes e jogos) ou **Bloquear** (só os essenciais). 15 a 60 min ou personalizado. Depois de começar, não dá para trocar. |
 | 🌙 | **[Descanso](docs/funcionalidades/03-horario.md)** | No horário escolhido (padrão 20h–4h), o celular vira um Hub com relógio e só os apps essenciais. Notificações e controles rápidos continuam. |
 | 🏦 | **[Pasta segura](docs/funcionalidades/04-pasta-segura.md)** | Para os apps de banco: abrem num "ambiente limpo" (sem depuração nem opções do desenvolvedor) e funcionam até no descanso. |
